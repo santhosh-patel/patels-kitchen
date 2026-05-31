@@ -8,7 +8,9 @@ function FormattedText({ text }) {
 
   // Replace double asterisks with bold tags
   const parseBold = (str) => {
-    const parts = str.split(/\*\*([^*]+)\*\*/g);
+    if (!str) return '';
+    const cleanStr = str.replace(/\*\*\*\*/g, '').replace(/\*\*\s*\*\*/g, '');
+    const parts = cleanStr.split(/\*\*(.*?)\*\*/g);
     return parts.map((part, i) => i % 2 === 1 ? <strong key={i} style={{ fontWeight: 700, color: 'var(--traditional-brown)' }}>{part}</strong> : part);
   };
 
@@ -86,7 +88,20 @@ function FormattedText({ text }) {
   };
 
   for (let i = 0; i < lines.length; i++) {
-    const line = lines[i];
+    let line = lines[i];
+
+    // Normalize tab-separated or double-space-separated table rows
+    if (line.includes('\t')) {
+      const parts = line.split('\t').map(p => p.trim()).filter(Boolean);
+      if (parts.length >= 2) {
+        line = '| ' + parts.join(' | ') + ' |';
+      }
+    } else if (line.includes('  ')) {
+      const parts = line.split(/ {2,}/).map(p => p.trim()).filter(Boolean);
+      if (parts.length >= 2 && !line.trim().startsWith('-') && !line.trim().startsWith('*') && !/^\d+\./.test(line.trim())) {
+        line = '| ' + parts.join(' | ') + ' |';
+      }
+    }
 
     if (line.trim().startsWith('|') && line.trim().endsWith('|')) {
       flushList(`list-${i}`);
