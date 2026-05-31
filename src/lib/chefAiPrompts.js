@@ -33,6 +33,36 @@ function mentionsAny(text, terms) {
   return terms.some((term) => text.includes(term));
 }
 
+const NEGATIONS = ['no ', 'not ', "n't", 'without', 'avoid', 'never', 'skip', 'hate', 'dont', "don't", 'cannot', "can't", 'less ', 'allergic to'];
+
+function isNegatedAt(text, idx) {
+  const before = text.slice(Math.max(0, idx - 18), idx);
+  return NEGATIONS.some((neg) => before.includes(neg));
+}
+
+function eachOccurrence(text, term, predicate) {
+  let from = 0;
+  let idx = text.indexOf(term, from);
+  while (idx !== -1) {
+    if (predicate(idx)) return true;
+    from = idx + term.length;
+    idx = text.indexOf(term, from);
+  }
+  return false;
+}
+
+// term present AND not preceded by a negation ("spicy" yes, "not spicy" no)
+function hasPositiveMention(text, terms) {
+  return terms.some((term) => text.includes(term) && eachOccurrence(text, term, (idx) => !isNegatedAt(text, idx)));
+}
+
+// term present specifically in a negated context ("not spicy", "no chicken")
+function hasNegatedMention(text, terms) {
+  return terms.some((term) => eachOccurrence(text, term, (idx) => isNegatedAt(text, idx)));
+}
+
+const RESET_RE = /\b(reset|clear|forget|start over|start fresh|never\s?mind|no preferences?|remove (?:my )?preferences?|change everything)\b/;
+
 function detectCategories(text) {
   const found = [];
   for (const [category, keywords] of Object.entries(CATEGORY_KEYWORDS)) {
@@ -43,6 +73,12 @@ function detectCategories(text) {
 
 export function parseProfileUpdates(text, profile = DEFAULT_PROFILE) {
   const lower = text.toLowerCase();
+
+  // Explicit reset/override — wipe preferences but keep the guest's name.
+  if (RESET_RE.test(lower)) {
+    return { profile: { ...DEFAULT_PROFILE, name: profile.name || '' }, changed: true };
+  }
+
   const updated = {
     ...profile,
     health_goals: [...profile.health_goals],
@@ -52,28 +88,34 @@ export function parseProfileUpdates(text, profile = DEFAULT_PROFILE) {
 
   const markChanged = () => { changed = true; };
 
-  if (mentionsAny(lower, ['vegetarian', 'pure veg', 'veg only', 'no meat'])) {
+  // Diet — positive mentions only, so "no chicken" / "without mutton" never flips to non-veg.
+  if (
+    hasPositiveMention(lower, ['vegetarian', 'pure veg', 'veg only']) ||
+    mentionsAny(lower, ['no meat', 'without meat', 'no chicken', 'no mutton', 'no egg'])
+  ) {
     updated.diet_type = 'vegetarian';
     markChanged();
-  } else if (mentionsAny(lower, ['vegan', 'no dairy', 'plant based'])) {
+  } else if (hasPositiveMention(lower, ['vegan', 'plant based']) || mentionsAny(lower, ['no dairy'])) {
     updated.diet_type = 'vegan';
     if (!updated.allergies.includes('dairy')) updated.allergies.push('dairy');
     markChanged();
-  } else if (mentionsAny(lower, ['non veg', 'non-veg', 'chicken', 'mutton', 'meat', 'egg'])) {
-    if (!mentionsAny(lower, ['no meat', 'without meat'])) {
-      updated.diet_type = 'non_vegetarian';
-      markChanged();
-    }
+  } else if (hasPositiveMention(lower, ['non veg', 'non-veg', 'chicken', 'mutton', 'meat', 'egg'])) {
+    updated.diet_type = 'non_vegetarian';
+    markChanged();
   }
 
-  if (mentionsAny(lower, ['extra spicy', 'extremely hot', 'very spicy'])) {
+  // Spice — order matters: extra spicy, then mild (incl. negated "not spicy"), then plain spicy.
+  if (hasPositiveMention(lower, ['extra spicy', 'extremely hot', 'very spicy', 'super spicy'])) {
     updated.spice_preference = 'extra_spicy';
     markChanged();
-  } else if (mentionsAny(lower, ['spicy', 'hot'])) {
-    updated.spice_preference = 'spicy';
-    markChanged();
-  } else if (mentionsAny(lower, ['mild', 'no spice', 'less spicy', 'low spice'])) {
+  } else if (
+    mentionsAny(lower, ['mild', 'no spice', 'less spicy', 'low spice', 'not spicy', 'less heat', 'no heat', 'less spice']) ||
+    hasNegatedMention(lower, ['spicy', 'spice', 'hot'])
+  ) {
     updated.spice_preference = 'mild';
+    markChanged();
+  } else if (hasPositiveMention(lower, ['spicy', 'hot'])) {
+    updated.spice_preference = 'spicy';
     markChanged();
   }
 

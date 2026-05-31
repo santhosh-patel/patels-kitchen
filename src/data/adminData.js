@@ -507,6 +507,8 @@ export const restaurantSettings = {
   freeDeliveryAbove: 500,
   minimumOrder: 100,
   taxRate: 5,
+  upiVpa: 'sanrthoshpatel002@ptyes',
+  upiPayeeName: 'Patels Kitchen',
   socialLinks: {
     instagram: 'https://instagram.com/patelskitchen',
     facebook: 'https://facebook.com/patelskitchen',

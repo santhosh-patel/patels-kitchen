@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { X, Shield, Truck, Landmark, User, MapPin, Phone, Box, ShoppingBag, CheckCircle2, QrCode } from 'lucide-react';
 import { addOrder, getSettings } from '../data/store';
 import { calculateOrderTotals } from '../lib/pricing';
+import { buildUpiPaymentUri, generateUpiQrDataUrl } from '../lib/upiQr';
 import { useFocusTrap } from '../hooks/useFocusTrap';
 
 export default function CheckoutModal({
@@ -17,6 +18,9 @@ export default function CheckoutModal({
   const [deliveryMode, setDeliveryMode] = useState('dinein');
   const [checkoutPackaging, setCheckoutPackaging] = useState('none');
   const [paymentPhase, setPaymentPhase] = useState('idle'); // idle | qr | success
+  const [paymentRef, setPaymentRef] = useState('');
+  const [qrDataUrl, setQrDataUrl] = useState('');
+  const [qrError, setQrError] = useState('');
   const [formData, setFormData] = useState({
     name: '',
     phone: '',
@@ -37,14 +41,12 @@ export default function CheckoutModal({
       setDeliveryMode('dinein');
       setCheckoutPackaging(initialPackaging === 'none' ? 'none' : initialPackaging);
       setPaymentPhase('idle');
+      setPaymentRef('');
+      setQrDataUrl('');
+      setQrError('');
       setFormData({ name: '', phone: '', address: '', tableNumber: '', notes: '' });
     }
   }, [isOpen, initialPackaging]);
-
-  useEffect(() => {
-    if (step !== paymentStep || paymentPhase !== 'idle') return;
-    setPaymentPhase('qr');
-  }, [step, paymentStep, paymentPhase]);
 
   const totals = calculateOrderTotals({
     cart,
@@ -54,6 +56,56 @@ export default function CheckoutModal({
     settings
   });
   const { subtotal, discount, packagingFee, deliveryFee, tax: gst, grandTotal, taxRate } = totals;
+
+  useEffect(() => {
+    if (step !== paymentStep || paymentPhase !== 'idle') return;
+    setPaymentRef(`PK${Date.now().toString(36).toUpperCase()}`);
+    setPaymentPhase('qr');
+  }, [step, paymentStep, paymentPhase]);
+
+  const upiVpa = settings.upiVpa || 'sanrthoshpatel002@ptyes';
+  const upiPayeeName = settings.upiPayeeName || "Patel's Kitchen".replace(/'/g, '');
+
+  useEffect(() => {
+    if (paymentPhase !== 'qr' || !paymentRef) {
+      setQrDataUrl('');
+      setQrError('');
+      return undefined;
+    }
+
+    let cancelled = false;
+    const upiUri = buildUpiPaymentUri({
+      vpa: upiVpa,
+      payeeName: upiPayeeName,
+      amount: grandTotal,
+      transactionRef: paymentRef,
+      transactionNote: `Patels Kitchen order ${paymentRef}`
+    });
+
+    if (!upiUri) {
+      setQrError('Unable to build payment link. Check UPI settings.');
+      setQrDataUrl('');
+      return undefined;
+    }
+
+    generateUpiQrDataUrl(upiUri)
+      .then((url) => {
+        if (!cancelled) {
+          setQrDataUrl(url);
+          setQrError('');
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setQrError('Could not generate QR code. Please try again.');
+          setQrDataUrl('');
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [paymentPhase, paymentRef, grandTotal, upiVpa, upiPayeeName]);
 
   const handleInputChange = (field, val) => {
     setFormData(prev => ({ ...prev, [field]: val }));
@@ -150,10 +202,16 @@ export default function CheckoutModal({
   const handleBack = () => {
     if (step === paymentStep && paymentPhase !== 'idle') {
       setPaymentPhase('idle');
+      setPaymentRef('');
+      setQrDataUrl('');
+      setQrError('');
     }
     if (step > 1) {
       setStep(step - 1);
       setPaymentPhase('idle');
+      setPaymentRef('');
+      setQrDataUrl('');
+      setQrError('');
     } else {
       onClose();
     }
@@ -170,8 +228,13 @@ export default function CheckoutModal({
         { label: '3. Payment', active: step >= 3, completed: false }
       ];
 
-  const qrData = `upi://pay?pa=sanrthoshpatel002@ptyes&pn=Patel's Kitchen&am=${grandTotal}&cu=INR`;
-  const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(qrData)}`;
+  const qrData = buildUpiPaymentUri({
+    vpa: upiVpa,
+    payeeName: upiPayeeName,
+    amount: grandTotal,
+    transactionRef: paymentRef,
+    transactionNote: paymentRef ? `Patels Kitchen order ${paymentRef}` : undefined
+  });
 
   const isOnPayment = step === paymentStep;
   const showFooter = paymentPhase !== 'success';
@@ -394,8 +457,22 @@ export default function CheckoutModal({
                   </p>
 
                   <div className="qr-code-frame">
-                    <img src={qrUrl} alt="UPI Payment QR Code" className="qr-code-image" />
+                    {qrDataUrl ? (
+                      <img src={qrDataUrl} alt="UPI Payment QR Code" className="qr-code-image" />
+                    ) : (
+                      <div className="qr-code-placeholder">
+                        {qrError || 'Generating QR code...'}
+                      </div>
+                    )}
                   </div>
+
+                  <p className="qr-upi-id">
+                    Pay to: <strong>{upiVpa}</strong>
+                  </p>
+
+                  {qrData && (
+                    <p className="qr-ref-id">Ref: {paymentRef}</p>
+                  )}
 
                   <div className="qr-amount-display">
                     <QrCode size={16} style={{ color: 'var(--royal-gold)' }} />

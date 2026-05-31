@@ -1637,6 +1637,36 @@ p {
   border-radius: 8px;
 }
 
+.qr-code-placeholder {
+  width: 220px;
+  height: 220px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  text-align: center;
+  font-size: 0.8rem;
+  color: #888;
+}
+
+.qr-upi-id {
+  margin-top: 0.75rem;
+  font-size: 0.78rem;
+  color: #666;
+}
+
+.qr-upi-id strong {
+  color: var(--deep-charcoal);
+  font-weight: 600;
+}
+
+.qr-ref-id {
+  margin-top: 0.25rem;
+  font-size: 0.7rem;
+  color: #999;
+  letter-spacing: 0.03em;
+}
+
 .qr-amount-display {
   display: flex;
   align-items: center;

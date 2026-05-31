@@ -234,6 +234,33 @@ export default function SettingsModule() {
         </div>
       </div>
 
+      <div className="admin-settings-section">
+        <h3>UPI Payment</h3>
+        <div className="admin-form-row">
+          <div className="admin-form-group">
+            <label className="admin-form-label">UPI ID (VPA)</label>
+            <input
+              className="admin-form-input"
+              value={settings.upiVpa || ''}
+              onChange={(e) => update('upiVpa', e.target.value.trim())}
+              placeholder="yourname@upi"
+            />
+          </div>
+          <div className="admin-form-group">
+            <label className="admin-form-label">Payee name (shown in UPI apps)</label>
+            <input
+              className="admin-form-input"
+              value={settings.upiPayeeName || ''}
+              onChange={(e) => update('upiPayeeName', e.target.value)}
+              placeholder="Patels Kitchen"
+            />
+          </div>
+        </div>
+        <p style={{ fontSize: '0.78rem', color: '#888', marginTop: '0.5rem' }}>
+          Avoid apostrophes in the payee name. Use your real UPI ID so scanned QR codes do not show as expired or invalid.
+        </p>
+      </div>
+
       {/* Social Links */}
       <div className="admin-settings-section">
         <h3>Social Media Links</h3>
