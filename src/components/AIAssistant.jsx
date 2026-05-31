@@ -3,6 +3,136 @@ import { MessageSquare, X, Send, Plus, Award, Check, Heart, Flame, Star } from '
 import logoImg from '../assets/logo.jpg';
 import { menuData } from '../data/menuData';
 
+function FormattedText({ text }) {
+  if (!text) return null;
+
+  // Replace double asterisks with bold tags
+  const parseBold = (str) => {
+    const parts = str.split(/\*\*([^*]+)\*\*/g);
+    return parts.map((part, i) => i % 2 === 1 ? <strong key={i} style={{ fontWeight: 700, color: 'var(--traditional-brown)' }}>{part}</strong> : part);
+  };
+
+  const lines = text.split('\n');
+  const elements = [];
+  let currentList = [];
+  let listType = null; // 'ul' | 'ol'
+  let currentTable = [];
+
+  const flushList = (key) => {
+    if (currentList.length > 0) {
+      if (listType === 'ul') {
+        elements.push(
+          <ul key={key} style={{ margin: '0.4rem 0 0.8rem 1.2rem', padding: 0, listStyleType: 'disc' }}>
+            {currentList.map((item, idx) => (
+              <li key={idx} style={{ marginBottom: '0.3rem', fontSize: '0.85rem', lineHeight: '1.5', color: 'var(--deep-charcoal)' }}>
+                {parseBold(item)}
+              </li>
+            ))}
+          </ul>
+        );
+      } else {
+        elements.push(
+          <ol key={key} style={{ margin: '0.4rem 0 0.8rem 1.2rem', padding: 0 }}>
+            {currentList.map((item, idx) => (
+              <li key={idx} style={{ marginBottom: '0.3rem', fontSize: '0.85rem', lineHeight: '1.5', color: 'var(--deep-charcoal)' }}>
+                {parseBold(item)}
+              </li>
+            ))}
+          </ol>
+        );
+      }
+      currentList = [];
+      listType = null;
+    }
+  };
+
+  const flushTable = (key) => {
+    if (currentTable.length > 0) {
+      const validRows = currentTable.filter(row => !/^[|\s:-]+$/.test(row.replace(/\s/g, '')));
+      
+      if (validRows.length > 0) {
+        const tableRows = validRows.map(row => 
+          row.split('|').map(cell => cell.trim()).filter((cell, idx, arr) => idx > 0 && idx < arr.length - 1)
+        );
+
+        const headers = tableRows[0];
+        const bodyRows = tableRows.slice(1);
+
+        elements.push(
+          <div key={key} style={{ overflowX: 'auto', margin: '0.8rem 0', borderRadius: '8px', border: '1px solid var(--sandstone)' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.8rem', textAlign: 'left', background: 'var(--pure-white)' }}>
+              <thead>
+                <tr style={{ background: 'var(--heritage-cream)', borderBottom: '1px solid var(--sandstone)' }}>
+                  {headers.map((h, idx) => (
+                    <th key={idx} style={{ padding: '0.5rem 0.8rem', fontWeight: 700, color: 'var(--traditional-brown)' }}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {bodyRows.map((row, rowIdx) => (
+                  <tr key={rowIdx} style={{ borderBottom: rowIdx < bodyRows.length - 1 ? '1px solid rgba(184, 138, 59, 0.1)' : 'none' }}>
+                    {row.map((cell, cellIdx) => (
+                      <td key={cellIdx} style={{ padding: '0.5rem 0.8rem', color: '#444' }}>{parseBold(cell)}</td>
+                    ))}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        );
+      }
+      currentTable = [];
+    }
+  };
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+
+    if (line.trim().startsWith('|') && line.trim().endsWith('|')) {
+      flushList(`list-${i}`);
+      currentTable.push(line);
+      continue;
+    } else {
+      flushTable(`table-${i}`);
+    }
+
+    if (line.trim().startsWith('- ') || line.trim().startsWith('* ')) {
+      if (listType !== 'ul') {
+        flushList(`list-${i}`);
+        listType = 'ul';
+      }
+      currentList.push(line.trim().substring(2));
+      continue;
+    }
+
+    if (/^\d+\.\s/.test(line.trim())) {
+      if (listType !== 'ol') {
+        flushList(`list-${i}`);
+        listType = 'ol';
+      }
+      const match = line.trim().match(/^\d+\.\s(.*)/);
+      currentList.push(match ? match[1] : line.trim());
+      continue;
+    }
+
+    flushList(`list-${i}`);
+    if (line.trim() === '') {
+      elements.push(<div key={`space-${i}`} style={{ height: '0.5rem' }} />);
+    } else {
+      elements.push(
+        <p key={`p-${i}`} style={{ margin: '0 0 0.5rem 0', fontSize: '0.9rem', lineHeight: '1.6' }}>
+          {parseBold(line)}
+        </p>
+      );
+    }
+  }
+
+  flushList('list-final');
+  flushTable('table-final');
+
+  return <div>{elements}</div>;
+}
+
 export default function AIAssistant({ onAddToPlate, isOpen, setIsOpen, cart }) {
   // Hardwired API Key configuration directly from .env
   const apiKey = import.meta.env.VITE_GROQ_API_KEY || import.meta.env.GROQ_API_KEY || '';
@@ -289,7 +419,11 @@ export default function AIAssistant({ onAddToPlate, isOpen, setIsOpen, cart }) {
         Symmetrical Menu scoring matches for this guest:
         ${topSuggestions.join("\n")}
         
-        Politely suggest the top scored matches above. Respect their allergies. Keep responses clean, minimal, and elegant under 100 words.`
+        Guidance:
+        - Politely suggest the top scored matches above and respect their allergies.
+        - Present pairings, menu breakdowns, or multiple suggestions using clean points (- item) or neat markdown tables (| Head | Head |) when helpful.
+        - Use bolding (**word**) strategically to emphasize items.
+        - Keep responses clean, structured, and elegant under 150 words.`
       },
       ...messages.slice(-4).map(m => ({
         role: m.sender === 'user' ? "user" : "assistant",
@@ -474,7 +608,7 @@ export default function AIAssistant({ onAddToPlate, isOpen, setIsOpen, cart }) {
           <div className="ai-chat-history">
             {messages.map((msg) => (
               <div key={msg.id} className={`chat-bubble ${msg.sender}`}>
-                <span>{msg.text}</span>
+                <FormattedText text={msg.text} />
 
                 {/* Single Item Concierge Card */}
                 {msg.suggestedItem && (
