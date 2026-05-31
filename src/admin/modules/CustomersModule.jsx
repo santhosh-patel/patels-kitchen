@@ -1,8 +1,10 @@
 import React, { useState, useMemo } from 'react';
 import { Search, ChevronDown, ChevronUp } from 'lucide-react';
-import { customers, orders } from '../../data/adminData';
+import { getCustomers, getOrders } from '../../data/store';
 
 export default function CustomersModule() {
+  const customers = getCustomers();
+  const orders = getOrders();
   const [searchTerm, setSearchTerm] = useState('');
   const [sortBy, setSortBy] = useState('totalSpent');
   const [expandedCustomer, setExpandedCustomer] = useState(null);

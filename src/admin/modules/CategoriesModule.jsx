@@ -1,14 +1,16 @@
 import React, { useState } from 'react';
 import { Plus, Pencil, Trash2, GripVertical, X } from 'lucide-react';
-import { MENU_CATEGORIES, menuData } from '../../data/menuData';
+import { getCategories, saveCategories, getDishes } from '../../data/store';
 
 export default function CategoriesModule() {
-  const [categories, setCategories] = useState(
-    MENU_CATEGORIES.filter(c => c.id !== 'all').map(c => ({
+  const [categories, setCategories] = useState(() => {
+    const cats = getCategories();
+    const dishes = getDishes();
+    return cats.filter(c => c.id !== 'all').map(c => ({
       ...c,
-      dishCount: menuData.filter(d => d.category === c.id).length
-    }))
-  );
+      dishCount: dishes.filter(d => d.category === c.id).length
+    }));
+  });
   const [showModal, setShowModal] = useState(false);
   const [editingCat, setEditingCat] = useState(null);
   const [formName, setFormName] = useState('');
@@ -27,42 +29,59 @@ export default function CategoriesModule() {
 
   const handleSave = () => {
     if (!formName.trim()) return;
+    let updated;
     if (editingCat) {
-      setCategories(prev => prev.map(c =>
+      updated = categories.map(c =>
         c.id === editingCat.id ? { ...c, name: formName.trim() } : c
-      ));
+      );
     } else {
-      setCategories(prev => [...prev, {
+      updated = [...categories, {
         id: formName.trim().toLowerCase().replace(/\s+/g, ''),
         name: formName.trim(),
         dishCount: 0
-      }]);
+      }];
     }
+    const allCat = getCategories().find(c => c.id === 'all') || { id: 'all', name: 'Royal Feast' };
+    saveCategories([allCat, ...updated.map(({ id, name }) => ({ id, name }))]);
+
+    const dishes = getDishes();
+    setCategories(updated.map(c => ({
+      ...c,
+      dishCount: dishes.filter(d => d.category === c.id).length
+    })));
     setShowModal(false);
   };
 
   const handleDelete = (id) => {
     if (window.confirm('Delete this category? Dishes in this category will become uncategorized.')) {
-      setCategories(prev => prev.filter(c => c.id !== id));
+      const updated = categories.filter(c => c.id !== id);
+      const allCat = getCategories().find(c => c.id === 'all') || { id: 'all', name: 'Royal Feast' };
+      saveCategories([allCat, ...updated.map(({ id, name }) => ({ id, name }))]);
+
+      const dishes = getDishes();
+      setCategories(updated.map(c => ({
+        ...c,
+        dishCount: dishes.filter(d => d.category === c.id).length
+      })));
     }
   };
 
   const moveUp = (index) => {
     if (index === 0) return;
-    setCategories(prev => {
-      const arr = [...prev];
-      [arr[index - 1], arr[index]] = [arr[index], arr[index - 1]];
-      return arr;
-    });
+    const arr = [...categories];
+    [arr[index - 1], arr[index]] = [arr[index], arr[index - 1]];
+    const allCat = getCategories().find(c => c.id === 'all') || { id: 'all', name: 'Royal Feast' };
+    saveCategories([allCat, ...arr.map(({ id, name }) => ({ id, name }))]);
+    setCategories(arr);
   };
 
   const moveDown = (index) => {
     if (index === categories.length - 1) return;
-    setCategories(prev => {
-      const arr = [...prev];
-      [arr[index], arr[index + 1]] = [arr[index + 1], arr[index]];
-      return arr;
-    });
+    const arr = [...categories];
+    [arr[index], arr[index + 1]] = [arr[index + 1], arr[index]];
+    const allCat = getCategories().find(c => c.id === 'all') || { id: 'all', name: 'Royal Feast' };
+    saveCategories([allCat, ...arr.map(({ id, name }) => ({ id, name }))]);
+    setCategories(arr);
   };
 
   return (

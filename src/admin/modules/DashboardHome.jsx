@@ -3,10 +3,11 @@ import {
   ShoppingBag, DollarSign, Clock, ChefHat, Truck, XCircle,
   Star, Users, TrendingUp, ArrowUpRight
 } from 'lucide-react';
-import { getDashboardStats, orders } from '../../data/adminData';
+import { getDashboardStats, getOrders } from '../../data/store';
 
 export default function DashboardHome() {
   const stats = getDashboardStats();
+  const orders = getOrders();
 
   const recentOrders = orders.slice(0, 8);
 

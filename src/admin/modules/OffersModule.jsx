@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
 import { Plus, Trash2, X, Tag, Percent } from 'lucide-react';
-import { coupons as initialCoupons } from '../../data/adminData';
+import { getCoupons, saveCoupon, deleteCoupon } from '../../data/store';
 
 export default function OffersModule() {
-  const [couponList, setCouponList] = useState(initialCoupons);
+  const [couponList, setCouponList] = useState(() => getCoupons());
   const [showModal, setShowModal] = useState(false);
   const [formData, setFormData] = useState({
     code: '', type: 'percentage', value: '', minOrder: '', maxDiscount: '',
@@ -13,7 +13,7 @@ export default function OffersModule() {
   const handleAdd = () => {
     if (!formData.code || !formData.value) return;
 
-    setCouponList(prev => [...prev, {
+    const newCoupon = {
       id: `coup-${Date.now()}`,
       code: formData.code.toUpperCase().replace(/\s/g, ''),
       type: formData.type,
@@ -25,21 +25,27 @@ export default function OffersModule() {
       usageCount: 0,
       isActive: true,
       description: formData.description
-    }]);
+    };
+
+    saveCoupon(newCoupon);
+    setCouponList(getCoupons());
 
     setShowModal(false);
     setFormData({ code: '', type: 'percentage', value: '', minOrder: '', maxDiscount: '', expiryDate: '', usageLimit: '', description: '' });
   };
 
   const toggleActive = (id) => {
-    setCouponList(prev => prev.map(c =>
-      c.id === id ? { ...c, isActive: !c.isActive } : c
-    ));
+    const coupon = couponList.find(c => c.id === id);
+    if (coupon) {
+      saveCoupon({ ...coupon, isActive: !coupon.isActive });
+      setCouponList(getCoupons());
+    }
   };
 
-  const deleteCoupon = (id) => {
+  const handleDeleteCoupon = (id) => {
     if (window.confirm('Delete this coupon?')) {
-      setCouponList(prev => prev.filter(c => c.id !== id));
+      deleteCoupon(id);
+      setCouponList(getCoupons());
     }
   };
 
@@ -125,7 +131,7 @@ export default function OffersModule() {
                       <input type="checkbox" checked={coupon.isActive} onChange={() => toggleActive(coupon.id)} />
                       <span className="admin-toggle-slider" />
                     </label>
-                    <button className="admin-btn admin-btn-danger admin-btn-sm" onClick={() => deleteCoupon(coupon.id)}>
+                    <button className="admin-btn admin-btn-danger admin-btn-sm" onClick={() => handleDeleteCoupon(coupon.id)}>
                       <Trash2 size={13} />
                     </button>
                   </div>

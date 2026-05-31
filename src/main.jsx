@@ -3,6 +3,7 @@ import { createRoot } from 'react-dom/client'
 import './index.css'
 import App from './App.jsx'
 import AdminDashboard from './admin/AdminDashboard.jsx'
+import OrderTracker from './components/OrderTracker.jsx'
 import NotFound from './components/NotFound.jsx'
 
 function Router() {
@@ -13,6 +14,9 @@ function Router() {
     }
     if (hash.startsWith('#/admin')) {
       return 'admin';
+    }
+    if (hash.startsWith('#/track')) {
+      return 'track';
     }
     // Handle standard section scroll targets
     if (hash.startsWith('#') && !hash.startsWith('#/')) {
@@ -36,6 +40,8 @@ function Router() {
 
   if (view === 'admin') {
     return <AdminDashboard />;
+  } else if (view === 'track') {
+    return <OrderTracker />;
   } else if (view === '404') {
     return <NotFound />;
   }

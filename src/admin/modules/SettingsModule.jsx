@@ -1,10 +1,10 @@
 import React, { useState } from 'react';
 import { Save } from 'lucide-react';
-import { restaurantSettings as initialSettings } from '../../data/adminData';
+import { getSettings, saveSettings } from '../../data/store';
 import logoImg from '../../assets/logo.jpg';
 
 export default function SettingsModule() {
-  const [settings, setSettings] = useState(initialSettings);
+  const [settings, setSettings] = useState(() => getSettings());
   const [saved, setSaved] = useState(false);
 
   const update = (key, value) => {
@@ -32,6 +32,7 @@ export default function SettingsModule() {
   };
 
   const handleSave = () => {
+    saveSettings(settings);
     setSaved(true);
     setTimeout(() => setSaved(false), 3000);
   };

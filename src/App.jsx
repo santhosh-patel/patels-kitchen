@@ -18,6 +18,7 @@ export default function App() {
   const [isAIAssistantOpen, setIsAIAssistantOpen] = useState(false);
   const [completedOrderData, setCompletedOrderData] = useState(null);
   const [selectedPackaging, setSelectedPackaging] = useState('none');
+  const [activeCoupon, setActiveCoupon] = useState(null);
 
   // Scroll to element helper
   const handleScrollToSection = (id) => {
@@ -82,6 +83,7 @@ export default function App() {
   const handleCloseReceipt = () => {
     setCompletedOrderData(null);
     setCart([]);
+    setActiveCoupon(null);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
@@ -448,6 +450,8 @@ export default function App() {
         cart={cart}
         onUpdateQty={handleUpdateQty}
         onRemoveItem={handleRemoveItem}
+        activeCoupon={activeCoupon}
+        setActiveCoupon={setActiveCoupon}
         onCheckout={() => {
           setIsCartOpen(false);
           setIsCheckoutOpen(true);
@@ -459,6 +463,8 @@ export default function App() {
         isOpen={isCheckoutOpen}
         onClose={() => setIsCheckoutOpen(false)}
         cart={cart}
+        activeCoupon={activeCoupon}
+        setActiveCoupon={setActiveCoupon}
         onOrderComplete={handleOrderComplete}
       />
 

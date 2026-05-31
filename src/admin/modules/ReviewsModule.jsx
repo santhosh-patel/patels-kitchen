@@ -1,9 +1,9 @@
 import React, { useState, useMemo } from 'react';
 import { Star, Trash2, CheckCircle, AlertTriangle } from 'lucide-react';
-import { reviews as initialReviews } from '../../data/adminData';
+import { getReviews, saveReview } from '../../data/store';
 
 export default function ReviewsModule() {
-  const [reviewList, setReviewList] = useState(initialReviews);
+  const [reviewList, setReviewList] = useState(() => getReviews());
   const [ratingFilter, setRatingFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState('all');
 
@@ -26,16 +26,26 @@ export default function ReviewsModule() {
   }));
 
   const handleApprove = (id) => {
-    setReviewList(prev => prev.map(r => r.id === id ? { ...r, status: 'Approved' } : r));
+    const review = reviewList.find(r => r.id === id);
+    if (review) {
+      saveReview({ ...review, status: 'Approved' });
+      setReviewList(getReviews());
+    }
   };
 
   const handleFlag = (id) => {
-    setReviewList(prev => prev.map(r => r.id === id ? { ...r, status: 'Flagged' } : r));
+    const review = reviewList.find(r => r.id === id);
+    if (review) {
+      saveReview({ ...review, status: 'Flagged' });
+      setReviewList(getReviews());
+    }
   };
 
   const handleDelete = (id) => {
     if (window.confirm('Delete this review?')) {
-      setReviewList(prev => prev.filter(r => r.id !== id));
+      const updated = getReviews().filter(r => r.id !== id);
+      localStorage.setItem('pk_reviews', JSON.stringify(updated));
+      setReviewList(getReviews());
     }
   };
 

@@ -1,13 +1,13 @@
 import React, { useState, useMemo } from 'react';
 import { Search, Filter, Eye, EyeOff, Printer, ChevronDown, ChevronUp, Package } from 'lucide-react';
-import { orders as allOrders, ORDER_STATUSES } from '../../data/adminData';
+import { getOrders, updateOrderStatus, ORDER_STATUSES } from '../../data/store';
 
 export default function OrdersModule() {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('All');
   const [dateFilter, setDateFilter] = useState('');
   const [expandedOrder, setExpandedOrder] = useState(null);
-  const [orderList, setOrderList] = useState(allOrders);
+  const [orderList, setOrderList] = useState(() => getOrders());
   const [currentPage, setCurrentPage] = useState(1);
   const perPage = 12;
 
@@ -30,7 +30,8 @@ export default function OrdersModule() {
   const paginatedOrders = filteredOrders.slice((currentPage - 1) * perPage, currentPage * perPage);
 
   const handleStatusChange = (orderId, newStatus) => {
-    setOrderList(prev => prev.map(o => o.id === orderId ? { ...o, status: newStatus } : o));
+    updateOrderStatus(orderId, newStatus);
+    setOrderList(getOrders());
   };
 
   const formatDate = (ts) => {

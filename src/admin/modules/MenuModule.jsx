@@ -1,9 +1,9 @@
 import React, { useState, useMemo } from 'react';
 import { Plus, Pencil, Trash2, X, Search } from 'lucide-react';
-import { menuData, MENU_CATEGORIES } from '../../data/menuData';
+import { getDishes, saveDish, deleteDish, getCategories } from '../../data/store';
 
 export default function MenuModule() {
-  const [dishes, setDishes] = useState(menuData.map(d => ({ ...d, available: true })));
+  const [dishes, setDishes] = useState(() => getDishes());
   const [searchTerm, setSearchTerm] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('all');
   const [showModal, setShowModal] = useState(false);
@@ -12,7 +12,7 @@ export default function MenuModule() {
     name: '', category: 'breakfast', description: '', price: '', isVeg: true, available: true
   });
 
-  const categories = MENU_CATEGORIES.filter(c => c.id !== 'all');
+  const categories = getCategories().filter(c => c.id !== 'all');
 
   const filtered = useMemo(() => {
     return dishes.filter(dish => {
@@ -47,11 +47,8 @@ export default function MenuModule() {
     if (!formData.name || !formData.price) return;
 
     if (editingDish) {
-      setDishes(prev => prev.map(d =>
-        d.id === editingDish.id
-          ? { ...d, ...formData, price: parseFloat(formData.price) }
-          : d
-      ));
+      const updatedDish = { ...editingDish, ...formData, price: parseFloat(formData.price) };
+      saveDish(updatedDish);
     } else {
       const newDish = {
         id: `dish-${Date.now()}`,
@@ -62,21 +59,25 @@ export default function MenuModule() {
         spiceLevel: 1,
         isSignature: false
       };
-      setDishes(prev => [...prev, newDish]);
+      saveDish(newDish);
     }
+    setDishes(getDishes());
     setShowModal(false);
   };
 
   const handleDelete = (id) => {
     if (window.confirm('Are you sure you want to delete this dish?')) {
-      setDishes(prev => prev.filter(d => d.id !== id));
+      deleteDish(id);
+      setDishes(getDishes());
     }
   };
 
   const toggleAvailability = (id) => {
-    setDishes(prev => prev.map(d =>
-      d.id === id ? { ...d, available: !d.available } : d
-    ));
+    const dish = dishes.find(d => d.id === id);
+    if (dish) {
+      saveDish({ ...dish, available: !dish.available });
+      setDishes(getDishes());
+    }
   };
 
   return (

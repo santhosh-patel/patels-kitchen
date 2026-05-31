@@ -1,6 +1,6 @@
 import React, { useMemo } from 'react';
 import { TrendingUp, BarChart3 } from 'lucide-react';
-import { getDailyRevenue, getWeeklyRevenue, getMonthlyRevenue, getMostOrderedDishes, getOrdersByCategory } from '../../data/adminData';
+import { getDailyRevenue, getWeeklyRevenue, getMonthlyRevenue, getMostOrderedDishes, getOrdersByCategory } from '../../data/store';
 
 function BarChart({ data, valueKey = 'revenue', labelKey = 'label', maxHeight = 180, barColor = 'var(--royal-gold)' }) {
   const maxVal = Math.max(...data.map(d => d[valueKey]), 1);

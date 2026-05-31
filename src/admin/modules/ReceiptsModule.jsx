@@ -1,8 +1,9 @@
 import React, { useState, useMemo } from 'react';
 import { Search, Printer, Copy, Eye } from 'lucide-react';
-import { orders } from '../../data/adminData';
+import { getOrders } from '../../data/store';
 
 export default function ReceiptsModule() {
+  const orders = getOrders();
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedReceipt, setSelectedReceipt] = useState(null);
 

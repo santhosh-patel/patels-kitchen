@@ -1,11 +1,14 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { X, Shield, Truck, Landmark, User, MapPin, Phone, Box, ShoppingBag, CheckCircle2, QrCode } from 'lucide-react';
+import { addOrder, calculateDiscount } from '../data/store';
 
 export default function CheckoutModal({
   isOpen,
   onClose,
   cart,
-  onOrderComplete
+  onOrderComplete,
+  activeCoupon,
+  setActiveCoupon
 }) {
   const [step, setStep] = useState(1);
   const [deliveryMode, setDeliveryMode] = useState('dinein');
@@ -44,30 +47,42 @@ export default function CheckoutModal({
 
   const subtotal = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
   const packagingFee = !isDineIn && checkoutPackaging === 'box' ? 30 : (!isDineIn && checkoutPackaging === 'bag' ? 15 : 0);
-  const gst = Math.round(subtotal * 0.05);
-  const grandTotal = subtotal + packagingFee + gst;
+  const discount = activeCoupon ? calculateDiscount(activeCoupon, subtotal) : 0;
+  const discountedSubtotal = subtotal - discount;
+  const gst = Math.round(discountedSubtotal * 0.05);
+  const grandTotal = discountedSubtotal + packagingFee + gst;
 
   const handleInputChange = (field, val) => {
     setFormData(prev => ({ ...prev, [field]: val }));
   };
 
   const completeOrder = useCallback(() => {
-    const orderId = `PK-2026-${Math.floor(100000 + Math.random() * 900000)}`;
-    onOrderComplete({
-      orderId,
+    const orderId = `PK-${Math.floor(10000 + Math.random() * 90000)}`;
+    const finalOrder = addOrder({
+      id: orderId,
       customerName: formData.name || 'Honored Patel Guest',
       phone: formData.phone || '+91 98480 22338',
       deliveryMode,
       address: isDineIn
         ? (formData.address || 'Table 14 - Royal Dining Hall')
         : (formData.address || 'Royal Suite Delivery'),
-      date: new Date().toLocaleString(),
       packagingFee,
-      gst,
-      grandTotal,
-      cart
+      subtotal,
+      tax: gst,
+      deliveryFee: isDineIn ? 0 : 40,
+      total: grandTotal,
+      items: cart.map(item => ({
+        ...item,
+        lineTotal: item.price * item.quantity
+      })),
+      couponCode: activeCoupon ? activeCoupon.code : null,
+      discount,
+      specialInstructions: formData.notes || '',
+      deliveryType: isDineIn ? 'Dine-in' : 'Delivery',
+      timestamp: new Date().toISOString()
     });
-  }, [onOrderComplete, formData, deliveryMode, isDineIn, packagingFee, gst, grandTotal, cart]);
+    onOrderComplete(finalOrder);
+  }, [onOrderComplete, formData, deliveryMode, isDineIn, packagingFee, gst, grandTotal, cart, activeCoupon, subtotal, discount]);
 
   useEffect(() => {
     if (paymentPhase !== 'success') return;
@@ -213,6 +228,12 @@ export default function CheckoutModal({
                   <span>Dishes total ({cart.reduce((sum, item) => sum + item.quantity, 0)} items)</span>
                   <span>₹{subtotal}</span>
                 </div>
+                {discount > 0 && (
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', marginBottom: '0.3rem', color: 'var(--royal-gold)', fontWeight: 600 }}>
+                    <span>Royal Discount ({activeCoupon.code})</span>
+                    <span>-₹{discount}</span>
+                  </div>
+                )}
                 {packagingFee > 0 && (
                   <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', marginBottom: '0.3rem' }}>
                     <span>Heritage Packaging</span>
