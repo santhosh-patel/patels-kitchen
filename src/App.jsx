@@ -41,6 +41,7 @@ export default function App() {
 
       <Hero onScrollToSection={handleScrollToSection} />
 
+      <main id="main-content">
       <section id="about-section" className="temple-border-top page-section" style={{
         background: 'var(--pure-white)',
         borderBottom: '1px solid rgba(184, 138, 59, 0.15)'
@@ -104,7 +105,7 @@ export default function App() {
               className="btn-primary"
               style={{ padding: '0.8rem 1.5rem', fontSize: '0.85rem' }}
             >
-              Browse Menu & Consult Chef AI
+              Try Chef AI
             </button>
           </div>
           <div className="ai-promo-card">
@@ -116,6 +117,7 @@ export default function App() {
           </div>
         </div>
       </section>
+      </main>
 
       <SiteFooter />
       <OrderingOverlays />

@@ -1,7 +1,8 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { X, Shield, Truck, Landmark, User, MapPin, Phone, Box, ShoppingBag, CheckCircle2, QrCode } from 'lucide-react';
 import { addOrder, getSettings } from '../data/store';
 import { calculateOrderTotals } from '../lib/pricing';
+import { useFocusTrap } from '../hooks/useFocusTrap';
 
 export default function CheckoutModal({
   isOpen,
@@ -23,6 +24,7 @@ export default function CheckoutModal({
     tableNumber: '',
     notes: ''
   });
+  const orderCompletedRef = useRef(false);
 
   const isDineIn = deliveryMode === 'dinein';
   const paymentStep = isDineIn ? 2 : 3;
@@ -30,6 +32,7 @@ export default function CheckoutModal({
 
   useEffect(() => {
     if (isOpen) {
+      orderCompletedRef.current = false;
       setStep(1);
       setDeliveryMode('dinein');
       setCheckoutPackaging(initialPackaging === 'none' ? 'none' : initialPackaging);
@@ -42,12 +45,6 @@ export default function CheckoutModal({
     if (step !== paymentStep || paymentPhase !== 'idle') return;
     setPaymentPhase('qr');
   }, [step, paymentStep, paymentPhase]);
-
-  useEffect(() => {
-    if (paymentPhase !== 'qr') return;
-    const timer = setTimeout(() => setPaymentPhase('success'), 15000);
-    return () => clearTimeout(timer);
-  }, [paymentPhase]);
 
   const totals = calculateOrderTotals({
     cart,
@@ -63,6 +60,9 @@ export default function CheckoutModal({
   };
 
   const completeOrder = useCallback(() => {
+    if (orderCompletedRef.current) return;
+    orderCompletedRef.current = true;
+
     const orderId = `PK-${Math.floor(10000 + Math.random() * 90000)}`;
     const timestamp = new Date().toISOString();
     const dineInAddress = formData.tableNumber
@@ -128,6 +128,8 @@ export default function CheckoutModal({
     return () => window.removeEventListener('keydown', onKey);
   }, [isOpen, onClose]);
 
+  const modalRef = useFocusTrap(isOpen, onClose);
+
   if (!isOpen || cart.length === 0) return null;
 
   const handleDeliveryModeChange = (mode) => {
@@ -159,12 +161,12 @@ export default function CheckoutModal({
 
   const stepPills = isDineIn
     ? [
-        { label: '1. Feast Mode', active: step >= 1, completed: step > 1 },
+        { label: '1. Dining option', active: step >= 1, completed: step > 1 },
         { label: '2. Payment', active: step >= 2, completed: false }
       ]
     : [
-        { label: '1. Feast Mode', active: step >= 1, completed: step > 1 },
-        { label: '2. Royal Details', active: step >= 2, completed: step > 2 },
+        { label: '1. Dining option', active: step >= 1, completed: step > 1 },
+        { label: '2. Delivery details', active: step >= 2, completed: step > 2 },
         { label: '3. Payment', active: step >= 3, completed: false }
       ];
 
@@ -172,11 +174,11 @@ export default function CheckoutModal({
   const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(qrData)}`;
 
   const isOnPayment = step === paymentStep;
-  const showFooter = !isOnPayment || paymentPhase === 'idle';
+  const showFooter = paymentPhase !== 'success';
 
   return (
     <div className="checkout-overlay" onClick={onClose} role="dialog" aria-modal="true" aria-label="Checkout">
-      <div className="checkout-modal" onClick={(e) => e.stopPropagation()}>
+      <div className="checkout-modal" ref={modalRef} onClick={(e) => e.stopPropagation()}>
         
         <div className="checkout-header">
           <h3 className="checkout-title">Royal Checkout</h3>
@@ -276,7 +278,7 @@ export default function CheckoutModal({
 
               <div style={{ background: 'var(--heritage-cream)', borderRadius: '16px', padding: '1.2rem', marginTop: '1.5rem' }}>
                 <h5 style={{ fontFamily: 'var(--font-headings)', fontSize: '0.85rem', marginBottom: '0.6rem', color: 'var(--traditional-brown)' }}>
-                  Feast Valuation:
+                  Order summary
                 </h5>
                 <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', marginBottom: '0.3rem' }}>
                   <span>Dishes total ({cart.reduce((sum, item) => sum + item.quantity, 0)} items)</span>
@@ -284,7 +286,7 @@ export default function CheckoutModal({
                 </div>
                 {discount > 0 && (
                   <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', marginBottom: '0.3rem', color: 'var(--royal-gold)', fontWeight: 600 }}>
-                    <span>Royal Discount ({activeCoupon.code})</span>
+                    <span>Discount ({activeCoupon.code})</span>
                     <span>-₹{discount}</span>
                   </div>
                 )}
@@ -296,7 +298,7 @@ export default function CheckoutModal({
                 )}
                 {deliveryFee > 0 && (
                   <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', marginBottom: '0.3rem' }}>
-                    <span>Royal Delivery Fee</span>
+                    <span>Delivery fee</span>
                     <span>₹{deliveryFee}</span>
                   </div>
                 )}
@@ -315,18 +317,18 @@ export default function CheckoutModal({
           {step === 2 && !isDineIn && (
             <div style={{ animation: 'fadeIn 0.4s ease forwards' }}>
               <h4 style={{ fontFamily: 'var(--font-headings)', fontSize: '1.1rem', marginBottom: '1.2rem', color: 'var(--traditional-brown)' }}>
-                Recipient Designation
+                Delivery details
               </h4>
               
               <div className="form-group">
                 <label className="form-label">
                   <User size={12} style={{ display: 'inline', marginRight: '4px', verticalAlign: 'middle' }} />
-                  Guest Name
+                  Guest name
                 </label>
                 <input 
                   type="text" 
                   className="form-input" 
-                  placeholder="e.g. Maharaja Santhosh Patel"
+                  placeholder="Your full name"
                   value={formData.name}
                   onChange={(e) => handleInputChange('name', e.target.value)}
                   required
@@ -336,7 +338,7 @@ export default function CheckoutModal({
               <div className="form-group">
                 <label className="form-label">
                   <Phone size={12} style={{ display: 'inline', marginRight: '4px', verticalAlign: 'middle' }} />
-                  Royal Helpline Phone Number
+                  Phone number
                 </label>
                 <input 
                   type="tel" 
@@ -351,12 +353,12 @@ export default function CheckoutModal({
               <div className="form-group">
                 <label className="form-label">
                   <MapPin size={12} style={{ display: 'inline', marginRight: '4px', verticalAlign: 'middle' }} />
-                  Estate/Delivery Address
+                  Delivery address
                 </label>
                 <textarea 
                   className="form-input" 
                   rows="3" 
-                  placeholder="Provide detailed instructions to your royal estate..."
+                  placeholder="Street, area, landmark..."
                   value={formData.address}
                   onChange={(e) => handleInputChange('address', e.target.value)}
                   required
@@ -365,7 +367,7 @@ export default function CheckoutModal({
               </div>
 
               <div className="form-group">
-                <label className="form-label">Chef Notes (Dietary Restrictions/Spiciness)</label>
+                <label className="form-label">Special instructions (optional)</label>
                 <input 
                   type="text" 
                   className="form-input" 
@@ -387,8 +389,8 @@ export default function CheckoutModal({
                   <p style={{ fontSize: '0.8rem', color: '#666', marginBottom: '0.5rem' }}>
                     Scan the UPI QR code with any payment app
                   </p>
-                  <p style={{ fontSize: '0.75rem', color: 'var(--royal-gold)', fontWeight: 600, marginBottom: '1.2rem' }}>
-                    Payment confirms automatically in 15 seconds
+                  <p style={{ fontSize: '0.75rem', color: '#888', fontWeight: 500, marginBottom: '1.2rem' }}>
+                    Demo mode: tap confirm below after scanning, or without scanning.
                   </p>
 
                   <div className="qr-code-frame">
@@ -428,23 +430,32 @@ export default function CheckoutModal({
 
         {showFooter && (
           <div className="checkout-footer">
-            <button className="btn-secondary" onClick={handleBack}>
+            <button type="button" className="btn-secondary" onClick={handleBack}>
               {step === 1 ? 'Cancel' : 'Back'}
             </button>
-            
-            {step < paymentStep && (
-              <button 
-                className="btn-primary" 
+
+            {isOnPayment && paymentPhase === 'qr' ? (
+              <button
+                type="button"
+                className="btn-primary"
+                onClick={() => setPaymentPhase('success')}
+              >
+                I&apos;ve completed payment
+              </button>
+            ) : step < paymentStep ? (
+              <button
+                type="button"
+                className="btn-primary"
                 onClick={handleNextStep}
-                disabled={step === 2 && !isDineIn && (!formData.name || !formData.phone)}
+                disabled={step === 2 && !isDineIn && (!formData.name || !formData.phone || !formData.address)}
                 style={{
-                  opacity: (step === 2 && !isDineIn && (!formData.name || !formData.phone)) ? 0.5 : 1,
-                  cursor: (step === 2 && !isDineIn && (!formData.name || !formData.phone)) ? 'not-allowed' : 'pointer'
+                  opacity: (step === 2 && !isDineIn && (!formData.name || !formData.phone || !formData.address)) ? 0.5 : 1,
+                  cursor: (step === 2 && !isDineIn && (!formData.name || !formData.phone || !formData.address)) ? 'not-allowed' : 'pointer'
                 }}
               >
                 {step === 1 && isDineIn ? 'Proceed to Payment' : 'Next'}
               </button>
-            )}
+            ) : null}
           </div>
         )}
 

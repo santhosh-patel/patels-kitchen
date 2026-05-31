@@ -136,7 +136,7 @@ export default function OrderTracker() {
 
   return (
     <div className="standalone-page" style={{ background: 'var(--ivory)' }}>
-      <div className="standalone-container">
+      <main id="main-content" className="standalone-container">
         
         <header className="standalone-header">
           <a href="/" className="standalone-back-link">
@@ -464,7 +464,7 @@ export default function OrderTracker() {
           </div>
         )}
 
-      </div>
+      </main>
     </div>
   );
 }

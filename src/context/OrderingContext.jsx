@@ -1,14 +1,46 @@
-import { createContext, useContext, useState, useEffect } from 'react';
+import { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { getCart, saveCart, getActiveCoupon, saveActiveCoupon } from '../data/store';
 import { useSettings } from './StoreContext';
 import { meetsMinimumOrder } from '../lib/pricing';
-import { navigate } from '../lib/navigation';
+import { navigate, syncMenuCategory, getPathname } from '../lib/navigation';
+import Toast from '../components/Toast';
 
 const OrderingContext = createContext(null);
 
+function prefersReducedMotion() {
+  return window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+}
+
+function playAddChime() {
+  if (prefersReducedMotion()) return;
+  try {
+    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    const oscillator = audioCtx.createOscillator();
+    const gainNode = audioCtx.createGain();
+    oscillator.connect(gainNode);
+    gainNode.connect(audioCtx.destination);
+    oscillator.type = 'triangle';
+    oscillator.frequency.setValueAtTime(1046.50, audioCtx.currentTime);
+    gainNode.gain.setValueAtTime(0.03, audioCtx.currentTime);
+    oscillator.start();
+    gainNode.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.5);
+    oscillator.stop(audioCtx.currentTime + 0.5);
+  } catch {
+    // AudioContext blocked
+  }
+}
+
 export function OrderingProvider({ children }) {
   const settings = useSettings();
-  const [activeCategory, setActiveCategory] = useState('all');
+  const [activeCategory, setActiveCategoryState] = useState('all');
+
+  const setActiveCategory = useCallback((categoryId) => {
+    setActiveCategoryState(categoryId);
+    if (getPathname() === '/menu') {
+      syncMenuCategory(categoryId);
+    }
+  }, []);
+
   const [cart, setCart] = useState(() => getCart());
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
@@ -16,9 +48,16 @@ export function OrderingProvider({ children }) {
   const [completedOrderData, setCompletedOrderData] = useState(null);
   const [selectedPackaging, setSelectedPackaging] = useState('none');
   const [activeCoupon, setActiveCoupon] = useState(() => getActiveCoupon());
+  const [toast, setToast] = useState(null);
 
   useEffect(() => { saveCart(cart); }, [cart]);
   useEffect(() => { saveActiveCoupon(activeCoupon); }, [activeCoupon]);
+
+  const dismissToast = useCallback(() => setToast(null), []);
+
+  const showToast = useCallback((message, action, onAction) => {
+    setToast({ message, action, onAction });
+  }, []);
 
   const handleAddToPlate = (item) => {
     setCart((prevCart) => {
@@ -31,21 +70,11 @@ export function OrderingProvider({ children }) {
       return [...prevCart, { ...item, quantity: 1 }];
     });
 
-    try {
-      const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-      const oscillator = audioCtx.createOscillator();
-      const gainNode = audioCtx.createGain();
-      oscillator.connect(gainNode);
-      gainNode.connect(audioCtx.destination);
-      oscillator.type = 'triangle';
-      oscillator.frequency.setValueAtTime(1046.50, audioCtx.currentTime);
-      gainNode.gain.setValueAtTime(0.03, audioCtx.currentTime);
-      oscillator.start();
-      gainNode.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.5);
-      oscillator.stop(audioCtx.currentTime + 0.5);
-    } catch {
-      // AudioContext blocked
-    }
+    playAddChime();
+    showToast(`${item.name} added`, 'View plate', () => {
+      setIsCartOpen(true);
+      dismissToast();
+    });
   };
 
   const handleUpdateQty = (itemId, qty) => {
@@ -77,6 +106,7 @@ export function OrderingProvider({ children }) {
 
   const handleCloseReceipt = () => {
     clearOrderSession();
+    navigate('/');
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
@@ -85,15 +115,22 @@ export function OrderingProvider({ children }) {
     navigate('/menu');
   };
 
+  const handleOrderAgain = () => {
+    navigate('/menu');
+    setCompletedOrderData(null);
+  };
+
   const handleCheckout = () => {
     if (cart.length === 0) return;
-    if (!meetsMinimumOrder(cart, settings)) {
-      alert(`Minimum order is ₹${settings.minimumOrder ?? 100}. Please add more items to your plate.`);
-      return;
-    }
+    if (!meetsMinimumOrder(cart, settings)) return;
     setIsCartOpen(false);
     setIsCheckoutOpen(true);
   };
+
+  const cartSubtotal = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
+  const minOrder = settings.minimumOrder ?? 100;
+  const minOrderMet = meetsMinimumOrder(cart, settings);
+  const minOrderShortfall = Math.max(0, minOrder - cartSubtotal);
 
   return (
     <OrderingContext.Provider value={{
@@ -117,9 +154,21 @@ export function OrderingProvider({ children }) {
       handleOrderComplete,
       handleCloseReceipt,
       handleBackFromReceipt,
-      handleCheckout
+      handleOrderAgain,
+      handleCheckout,
+      minOrderMet,
+      minOrderShortfall,
+      minOrder,
+      showToast,
+      dismissToast
     }}>
       {children}
+      <Toast
+        message={toast?.message}
+        action={toast?.action}
+        onAction={toast?.onAction}
+        onDismiss={dismissToast}
+      />
     </OrderingContext.Provider>
   );
 }

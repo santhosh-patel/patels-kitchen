@@ -1,74 +1,155 @@
-import React, { useState } from 'react';
-import { Search, Flame, Star, Sparkles, Plus, Check, Leaf, Heart } from 'lucide-react';
+import { useState, useDeferredValue } from 'react';
+import { Search, Flame, Star, Sparkles, Plus, Minus, Leaf, Heart, X } from 'lucide-react';
 import { useDishes, useCategories, useReviews, getDishRating } from '../context/StoreContext';
+import { getDishImage, getDishGradient } from '../lib/dishImage';
 
-const CATEGORY_GRADIENTS = {
-  breakfast: 'linear-gradient(135deg, #FFF8E7 0%, #F5DEB3 100%)',
-  starters: 'linear-gradient(135deg, #FFE4E1 0%, #FFB6A3 100%)',
-  biryanis: 'linear-gradient(135deg, #FFF0E0 0%, #E8C99B 100%)',
-  maincourse: 'linear-gradient(135deg, #F0FFF0 0%, #C8E6C9 100%)',
-  breads: 'linear-gradient(135deg, #FFF8DC 0%, #F0E68C 100%)',
-  beverages: 'linear-gradient(135deg, #E8F4FD 0%, #B3D9F2 100%)',
-  desserts: 'linear-gradient(135deg, #FFF0F5 0%, #FFB6C1 100%)',
-  chefspecials: 'linear-gradient(135deg, #F3E5F5 0%, #CE93D8 100%)'
+const PACKAGING_LABELS = {
+  box: { name: 'Heritage Box', fee: 30 },
+  bag: { name: 'Sandstone Bag', fee: 15 }
 };
 
-export default function FoodDiscovery({ onAddToPlate, activeCategory, setActiveCategory, cart }) {
+function getReviewCount(reviews, dishId) {
+  return reviews.filter((r) => r.dishId === dishId && r.status === 'Approved').length;
+}
+
+function RatingDisplay({ item, reviews }) {
+  const reviewCount = getReviewCount(reviews, item.id);
+  const reviewRating = getDishRating(reviews, item.id);
+  const displayRating = reviewRating ?? item.rating;
+
+  if (reviewCount > 0) {
+    return (
+      <div className="food-rating">
+        <Star size={14} fill="var(--royal-gold)" stroke="none" />
+        <span>{displayRating?.toFixed(1)} · {reviewCount} {reviewCount === 1 ? 'review' : 'reviews'}</span>
+      </div>
+    );
+  }
+
+  if (displayRating != null && displayRating < 3.5) {
+    return (
+      <div className="food-rating food-rating-new">
+        <span>New</span>
+      </div>
+    );
+  }
+
+  return (
+    <div className="food-rating">
+      <Star size={14} fill="var(--royal-gold)" stroke="none" />
+      <span>{displayRating?.toFixed?.(1) ?? '—'}</span>
+    </div>
+  );
+}
+
+export default function FoodDiscovery({
+  onAddToPlate,
+  onUpdateQty,
+  activeCategory,
+  setActiveCategory,
+  cart,
+  selectedPackaging,
+  onDismissPackagingBanner
+}) {
   const allDishes = useDishes();
   const categories = useCategories();
   const reviews = useReviews();
   const [searchQuery, setSearchQuery] = useState('');
+  const deferredSearch = useDeferredValue(searchQuery);
   const [filterVeg, setFilterVeg] = useState(false);
   const [filterSignature, setFilterSignature] = useState(false);
+  const [packagingBannerDismissed, setPackagingBannerDismissed] = useState(false);
 
   const filteredItems = allDishes.filter((item) => {
-    // Category match
     const categoryMatch = activeCategory === 'all' || item.category === activeCategory;
-    // Search query match
-    const searchMatch = item.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                        item.description.toLowerCase().includes(searchQuery.toLowerCase());
-    // Veg match
+    const q = deferredSearch.toLowerCase();
+    const searchMatch = !q ||
+      item.name.toLowerCase().includes(q) ||
+      item.description.toLowerCase().includes(q);
     const vegMatch = !filterVeg || item.isVeg;
-    // Signature match
     const sigMatch = !filterSignature || item.isSignature;
-
     return categoryMatch && searchMatch && vegMatch && sigMatch;
   });
 
-  // Check item quantity in cart
   const getItemQty = (itemId) => {
-    const found = cart.find(i => i.id === itemId);
+    const found = cart.find((i) => i.id === itemId);
     return found ? found.quantity : 0;
   };
 
+  const clearFilters = () => {
+    setActiveCategory('all');
+    setSearchQuery('');
+    setFilterVeg(false);
+    setFilterSignature(false);
+  };
+
+  const packagingInfo = selectedPackaging !== 'none' ? PACKAGING_LABELS[selectedPackaging] : null;
+  const showPackagingBanner = packagingInfo && !packagingBannerDismissed;
+  const hasActiveFilters =
+    activeCategory !== 'all' || searchQuery || filterVeg || filterSignature;
+
   return (
-    <section id="menu-section" className="page-section" style={{
-      backgroundColor: 'var(--ivory)',
-      position: 'relative'
-    }}>
+    <section id="menu-section" className="page-section menu-discovery-section">
       <div className="page-container">
-        
-        {/* Section Header */}
-        <div style={{ textAlign: 'center', marginBottom: 'clamp(2rem, 5vw, 3.5rem)' }}>
-          <span className="section-eyebrow">
-            Explore Our Legacy
-          </span>
-          <h2 className="section-title" style={{ marginTop: '0.5rem', marginBottom: '1rem' }}>
-            The Royal Menu
-          </h2>
+        <div className="menu-section-header">
+          <span className="section-eyebrow">Explore Our Legacy</span>
+          <h2 className="section-title">The Royal Menu</h2>
           <div className="gold-divider">
             <span className="motif">✦ ❈ ✦</span>
           </div>
-          <p style={{ maxWidth: '600px', margin: '0 auto', fontSize: '0.95rem' }}>
+          <p className="menu-section-desc">
             Indulge in a curated symphony of authentic South Indian breakfast delicacies, slow dum-cooked biryanis, and traditional desserts.
           </p>
         </div>
 
+        {showPackagingBanner && (
+          <div className="packaging-selection-banner" role="status">
+            <span>
+              {packagingInfo.name} selected · +₹{packagingInfo.fee} · Change at checkout
+            </span>
+            <button
+              type="button"
+              className="packaging-banner-dismiss"
+              onClick={() => {
+                setPackagingBannerDismissed(true);
+                onDismissPackagingBanner?.();
+              }}
+              aria-label="Dismiss packaging notice"
+            >
+              <X size={16} />
+            </button>
+          </div>
+        )}
+
         <div className="menu-filter-bar">
-          <div className="menu-filter-categories">
+          <div className="menu-filter-search">
+            <Search size={16} className="menu-filter-search-icon" aria-hidden="true" />
+            <input
+              type="search"
+              placeholder="Search dishes..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              aria-label="Search menu items"
+            />
+            {searchQuery && (
+              <button
+                type="button"
+                className="menu-filter-search-clear"
+                onClick={() => setSearchQuery('')}
+                aria-label="Clear search"
+              >
+                <X size={14} />
+              </button>
+            )}
+          </div>
+
+          <div className="menu-filter-categories" role="tablist" aria-label="Menu categories">
             {categories.map((cat) => (
               <button
                 key={cat.id}
+                type="button"
+                role="tab"
+                aria-selected={activeCategory === cat.id}
                 onClick={() => setActiveCategory(cat.id)}
                 className={`menu-cat-btn ${activeCategory === cat.id ? 'active' : ''}`}
               >
@@ -77,107 +158,64 @@ export default function FoodDiscovery({ onAddToPlate, activeCategory, setActiveC
             ))}
           </div>
 
-          <div className="menu-filter-controls">
-            <div className="menu-filter-toggles">
-              <label style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '0.4rem',
-                fontSize: '0.8rem',
-                fontWeight: 700,
-                color: 'var(--deep-charcoal)',
-                cursor: 'pointer'
-              }}>
-                <input 
-                  type="checkbox"
-                  checked={filterVeg}
-                  onChange={(e) => setFilterVeg(e.target.checked)}
-                  style={{
-                    accentColor: 'var(--royal-gold)',
-                    width: '16px',
-                    height: '16px',
-                    cursor: 'pointer'
-                  }}
-                />
-                <Leaf size={14} style={{ color: '#2E7D32' }} />
-                <span>Veg Only</span>
-              </label>
-
-              <label style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '0.4rem',
-                fontSize: '0.8rem',
-                fontWeight: 700,
-                color: 'var(--deep-charcoal)',
-                cursor: 'pointer'
-              }}>
-                <input 
-                  type="checkbox"
-                  checked={filterSignature}
-                  onChange={(e) => setFilterSignature(e.target.checked)}
-                  style={{
-                    accentColor: 'var(--royal-gold)',
-                    width: '16px',
-                    height: '16px',
-                    cursor: 'pointer'
-                  }}
-                />
-                <Sparkles size={14} style={{ color: 'var(--royal-gold)' }} />
-                <span>Signatures Only</span>
-              </label>
+          <div className="menu-filter-secondary">
+            <div className="menu-filter-chips">
+              <button
+                type="button"
+                className={`menu-filter-chip menu-filter-chip-veg ${filterVeg ? 'active' : ''}`}
+                aria-pressed={filterVeg}
+                onClick={() => setFilterVeg((v) => !v)}
+              >
+                <Leaf size={13} aria-hidden="true" />
+                <span>Veg</span>
+              </button>
+              <button
+                type="button"
+                className={`menu-filter-chip ${filterSignature ? 'active' : ''}`}
+                aria-pressed={filterSignature}
+                onClick={() => setFilterSignature((v) => !v)}
+              >
+                <Sparkles size={13} aria-hidden="true" />
+                <span>Signatures</span>
+              </button>
             </div>
 
-            <div className="menu-filter-search">
-              <Search size={16} style={{ color: '#888888', marginRight: '0.5rem', flexShrink: 0 }} aria-hidden="true" />
-              <input 
-                type="search"
-                placeholder="Search recipe..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                aria-label="Search menu items"
-              />
+            <div className="menu-filter-meta">
+              <span className="menu-filter-count">
+                {filteredItems.length} {filteredItems.length === 1 ? 'dish' : 'dishes'}
+              </span>
+              {hasActiveFilters && (
+                <button type="button" className="menu-filter-clear" onClick={clearFilters}>
+                  Clear all
+                </button>
+              )}
             </div>
           </div>
         </div>
 
-        {/* High-End Symmetrical Cards Grid */}
         {filteredItems.length > 0 ? (
           <div className="food-grid">
             {filteredItems.map((item, index) => {
               const qtyInCart = getItemQty(item.id);
               const isUnavailable = item.available === false;
-              const reviewRating = getDishRating(reviews, item.id);
-              const displayRating = reviewRating ?? item.rating;
-              
+              const dishImage = getDishImage(item);
+              const gradient = getDishGradient(item.category);
+
               return (
-                <div key={item.id} style={{
-                  animation: 'fadeIn 0.6s ease forwards',
-                  animationDelay: `${index * 0.02}s`,
-                  opacity: isUnavailable ? 0.65 : 1
-                }}>
-                  <div className="food-card" style={{ position: 'relative' }}>
+                <div
+                  key={item.id}
+                  className="food-grid-item"
+                  style={{
+                    animationDelay: `${index * 0.02}s`,
+                    opacity: isUnavailable ? 0.65 : 1
+                  }}
+                >
+                  <div className="food-card">
                     {isUnavailable && (
-                      <span style={{
-                        position: 'absolute',
-                        top: '12px',
-                        left: '12px',
-                        zIndex: 3,
-                        background: '#666',
-                        color: '#fff',
-                        fontSize: '0.65rem',
-                        fontWeight: 700,
-                        padding: '0.25rem 0.6rem',
-                        borderRadius: '99px',
-                        textTransform: 'uppercase'
-                      }}>
-                        Unavailable
-                      </span>
+                      <span className="food-unavailable-badge">Unavailable</span>
                     )}
-                    
-                    {/* Food Image Wrapper */}
+
                     <div className="food-img-container">
-                      {/* Dietary Labels - EMOJI FREE */}
                       {item.isVeg ? (
                         <span className="food-tag-veg">
                           <Leaf size={12} fill="#2E7D32" stroke="none" />
@@ -189,7 +227,6 @@ export default function FoodDiscovery({ onAddToPlate, activeCategory, setActiveC
                         </span>
                       )}
 
-                      {/* Signature Label */}
                       {item.isSignature && (
                         <span className="food-tag-signature">
                           <Sparkles size={12} fill="var(--pure-white)" stroke="none" />
@@ -197,16 +234,24 @@ export default function FoodDiscovery({ onAddToPlate, activeCategory, setActiveC
                         </span>
                       )}
 
-                      <img 
-                        src={item.image} 
-                        alt={item.name} 
-                        className="food-img"
-                        loading="lazy"
-                        style={!item.image ? { background: CATEGORY_GRADIENTS[item.category] || '#f5f5f5', objectFit: 'cover' } : undefined}
-                      />
+                      {dishImage ? (
+                        <img
+                          src={dishImage}
+                          alt={item.name}
+                          className="food-img"
+                          loading="lazy"
+                        />
+                      ) : (
+                        <div
+                          className="food-img food-img-placeholder"
+                          style={{ background: gradient }}
+                          aria-label={item.name}
+                        >
+                          <span className="food-img-initial">{item.name.charAt(0)}</span>
+                        </div>
+                      )}
                     </div>
 
-                    {/* Food Card Content */}
                     <div className="food-content">
                       <div className="food-title-row">
                         <h4 className="food-title">{item.name}</h4>
@@ -215,7 +260,6 @@ export default function FoodDiscovery({ onAddToPlate, activeCategory, setActiveC
 
                       <p className="food-desc">{item.description}</p>
 
-                      {/* Pairing Suggestion inside the card */}
                       {item.isSignature && item.pairingText && (
                         <div className="pairing-tip">
                           <Heart size={14} fill="var(--royal-gold)" stroke="none" style={{ flexShrink: 0, marginTop: '2px' }} />
@@ -223,14 +267,9 @@ export default function FoodDiscovery({ onAddToPlate, activeCategory, setActiveC
                         </div>
                       )}
 
-                      {/* Card Footer details */}
                       <div className="food-meta">
-                        <div className="food-rating">
-                          <Star size={14} fill="var(--royal-gold)" stroke="none" />
-                          <span>{displayRating?.toFixed?.(1) ?? item.rating?.toFixed?.(1)}</span>
-                        </div>
+                        <RatingDisplay item={item} reviews={reviews} />
 
-                        {/* Spice Indicator */}
                         {item.spiceLevel > 0 ? (
                           <div className="food-spices" title={`Spice Level: ${item.spiceLevel}/3`}>
                             {Array.from({ length: item.spiceLevel }).map((_, i) => (
@@ -241,28 +280,41 @@ export default function FoodDiscovery({ onAddToPlate, activeCategory, setActiveC
                           <div style={{ height: '14px' }} />
                         )}
 
-                        {/* Upgraded Better & Efficient Add Button */}
-                        <button 
-                          onClick={() => !isUnavailable && onAddToPlate(item)}
-                          disabled={isUnavailable}
-                          className={`btn-add-plate ${qtyInCart > 0 ? 'added' : ''}`}
-                          title={qtyInCart > 0 ? `Add one more (Currently ${qtyInCart} on plate)` : 'Add to Plate'}
-                          aria-label={`Add ${item.name} to Plate`}
-                        >
-                          {qtyInCart > 0 ? (
-                            <>
-                              <Check size={14} />
-                              <span>Added ({qtyInCart})</span>
-                            </>
-                          ) : (
-                            <>
+                        {qtyInCart > 0 ? (
+                          <div className="food-qty-stepper">
+                            <button
+                              type="button"
+                              className="qty-btn"
+                              onClick={() => onUpdateQty(item.id, qtyInCart - 1)}
+                              disabled={isUnavailable}
+                              aria-label={`Decrease ${item.name} quantity`}
+                            >
+                              <Minus size={14} />
+                            </button>
+                            <span className="qty-val">{qtyInCart}</span>
+                            <button
+                              type="button"
+                              className="qty-btn"
+                              onClick={() => !isUnavailable && onAddToPlate(item)}
+                              disabled={isUnavailable}
+                              aria-label={`Increase ${item.name} quantity`}
+                            >
                               <Plus size={14} />
-                              <span>Add</span>
-                            </>
-                          )}
-                        </button>
+                            </button>
+                          </div>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => !isUnavailable && onAddToPlate(item)}
+                            disabled={isUnavailable}
+                            className="btn-add-plate"
+                            aria-label={`Add ${item.name} to Plate`}
+                          >
+                            <Plus size={14} />
+                            <span>Add</span>
+                          </button>
+                        )}
                       </div>
-
                     </div>
                   </div>
                 </div>
@@ -270,23 +322,14 @@ export default function FoodDiscovery({ onAddToPlate, activeCategory, setActiveC
             })}
           </div>
         ) : (
-          <div style={{
-            textAlign: 'center',
-            padding: '4rem 2rem',
-            background: 'var(--pure-white)',
-            borderRadius: '24px',
-            boxShadow: 'var(--soft-shadow)',
-            border: '1px solid rgba(216, 196, 165, 0.2)'
-          }}>
-            <h3 style={{ fontFamily: 'var(--font-headings)', color: '#888888' }}>
-              No dishes found matching your selection.
-            </h3>
-            <p style={{ fontSize: '0.85rem', marginTop: '0.5rem' }}>
-              Try searching for alternatives or clearing active dietary filters.
-            </p>
+          <div className="menu-empty-state">
+            <h3>No dishes found matching your selection.</h3>
+            <p>Try searching for alternatives or clearing active dietary filters.</p>
+            <button type="button" className="btn-secondary" onClick={clearFilters} style={{ marginTop: '1rem' }}>
+              Clear filters
+            </button>
           </div>
         )}
-
       </div>
     </section>
   );

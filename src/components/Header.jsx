@@ -1,15 +1,9 @@
 import { useState, useEffect } from 'react';
 import { ShoppingBag, Menu, X } from 'lucide-react';
 import logoImg from '../assets/logo.jpg';
-import { navigate } from '../lib/navigation';
-
-const NAV_CATEGORIES = [
-  { id: 'all', name: 'Royal Feast' },
-  { id: 'breakfast', name: 'Dawn' },
-  { id: 'biryanis', name: 'Biryanis' },
-  { id: 'starters', name: 'Starters' },
-  { id: 'desserts', name: 'Desserts & Brews' }
-];
+import { navigate, getPathname } from '../lib/navigation';
+import { useCategories } from '../context/StoreContext';
+import { useFocusTrap } from '../hooks/useFocusTrap';
 
 export default function Header({
   variant = 'home',
@@ -19,10 +13,25 @@ export default function Header({
   activeCategory,
   setActiveCategory
 }) {
+  const categories = useCategories();
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
+  const [pathname, setPathname] = useState(getPathname);
   const totalItems = cart.reduce((sum, item) => sum + item.quantity, 0);
   const cartSubtotal = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
   const isMenuPage = variant === 'menu';
+  const isHome = pathname === '/';
+  const isMenuRoute = pathname === '/menu';
+  const isTrack = pathname === '/track';
+
+  useEffect(() => {
+    const sync = () => setPathname(getPathname());
+    window.addEventListener('popstate', sync);
+    window.addEventListener('pk-navigate', sync);
+    return () => {
+      window.removeEventListener('popstate', sync);
+      window.removeEventListener('pk-navigate', sync);
+    };
+  }, []);
 
   useEffect(() => {
     if (!mobileNavOpen) return;
@@ -41,7 +50,7 @@ export default function Header({
     if (isMenuPage) {
       window.scrollTo({ top: 0, behavior: 'smooth' });
     } else {
-      navigate(`/menu?category=${catId}`);
+      navigate(catId === 'all' ? '/menu' : `/menu?category=${catId}`);
     }
   };
 
@@ -55,12 +64,18 @@ export default function Header({
     navigate('/menu');
   };
 
+  const goTrack = () => {
+    setMobileNavOpen(false);
+    navigate('/track');
+  };
+
   const scrollToAbout = () => {
     setMobileNavOpen(false);
     onScrollToSection?.('about-section');
   };
 
   const closeMobileNav = () => setMobileNavOpen(false);
+  const mobileNavRef = useFocusTrap(mobileNavOpen, closeMobileNav);
 
   return (
     <header className="site-header">
@@ -80,27 +95,32 @@ export default function Header({
         </div>
 
         <nav className="site-nav-desktop" aria-label="Main navigation">
-          {!isMenuPage ? (
-            <>
-              <a href="/" className="site-nav-link" onClick={(e) => { e.preventDefault(); goHome(); }}>Home</a>
-              <a href="/menu" className="site-nav-link active" onClick={(e) => { e.preventDefault(); goMenu(); }}>Menu</a>
-              <button type="button" onClick={scrollToAbout} className="site-nav-btn">Our Story</button>
-            </>
-          ) : (
-            <>
-              <a href="/" className="site-nav-link" onClick={(e) => { e.preventDefault(); goHome(); }}>Home</a>
-              {NAV_CATEGORIES.map((cat) => (
-                <button
-                  key={cat.id}
-                  type="button"
-                  onClick={() => handleCategoryClick(cat.id)}
-                  className={`site-nav-btn ${activeCategory === cat.id ? 'active' : ''}`}
-                >
-                  {cat.name}
-                </button>
-              ))}
-            </>
+          <a
+            href="/"
+            className={`site-nav-link ${isHome ? 'active' : ''}`}
+            onClick={(e) => { e.preventDefault(); goHome(); }}
+          >
+            Home
+          </a>
+          <a
+            href="/menu"
+            className={`site-nav-link ${isMenuRoute ? 'active' : ''}`}
+            onClick={(e) => { e.preventDefault(); goMenu(); }}
+          >
+            Menu
+          </a>
+          {!isMenuPage && (
+            <button type="button" onClick={scrollToAbout} className="site-nav-btn">
+              Our Story
+            </button>
           )}
+          <a
+            href="/track"
+            className={`site-nav-link ${isTrack ? 'active' : ''}`}
+            onClick={(e) => { e.preventDefault(); goTrack(); }}
+          >
+            Track Order
+          </a>
         </nav>
 
         <div className="header-actions">
@@ -136,23 +156,6 @@ export default function Header({
         </div>
       </div>
 
-      {isMenuPage && (
-        <div className="header-mobile-cats" role="tablist" aria-label="Menu categories">
-          {NAV_CATEGORIES.map((cat) => (
-            <button
-              key={cat.id}
-              type="button"
-              role="tab"
-              aria-selected={activeCategory === cat.id}
-              onClick={() => handleCategoryClick(cat.id)}
-              className={`header-cat-chip ${activeCategory === cat.id ? 'active' : ''}`}
-            >
-              {cat.name}
-            </button>
-          ))}
-        </div>
-      )}
-
       {mobileNavOpen && (
         <>
           <div
@@ -161,6 +164,7 @@ export default function Header({
             aria-hidden="true"
           />
           <nav
+            ref={mobileNavRef}
             className="mobile-nav-panel"
             aria-label="Mobile navigation"
             role="dialog"
@@ -179,20 +183,20 @@ export default function Header({
             </div>
 
             <div className="mobile-nav-links">
-              <a href="/" className="mobile-nav-item" onClick={(e) => { e.preventDefault(); goHome(); }}>Home</a>
-              <a href="/menu" className="mobile-nav-item" onClick={(e) => { e.preventDefault(); goMenu(); }}>Full Menu</a>
+              <a href="/" className={`mobile-nav-item ${isHome ? 'active' : ''}`} onClick={(e) => { e.preventDefault(); goHome(); }}>Home</a>
+              <a href="/menu" className={`mobile-nav-item ${isMenuRoute ? 'active' : ''}`} onClick={(e) => { e.preventDefault(); goMenu(); }}>Full Menu</a>
               {!isMenuPage && (
                 <button type="button" className="mobile-nav-item" onClick={scrollToAbout}>
                   Our Story
                 </button>
               )}
-              <a href="/track" className="mobile-nav-item" onClick={(e) => { e.preventDefault(); closeMobileNav(); navigate('/track'); }}>
+              <a href="/track" className={`mobile-nav-item ${isTrack ? 'active' : ''}`} onClick={(e) => { e.preventDefault(); goTrack(); }}>
                 Track Order
               </a>
 
               <div className="mobile-nav-divider" />
               <span className="mobile-nav-section-label">Menu Categories</span>
-              {NAV_CATEGORIES.map((cat) => (
+              {categories.map((cat) => (
                 <button
                   key={cat.id}
                   type="button"

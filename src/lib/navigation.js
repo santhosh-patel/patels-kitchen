@@ -13,6 +13,14 @@ export function getPathname() {
   return path || '/';
 }
 
+export function syncMenuCategory(categoryId) {
+  const path = categoryId === 'all'
+    ? '/menu'
+    : `/menu?category=${encodeURIComponent(categoryId)}`;
+  const onMenu = getPathname() === '/menu';
+  navigate(path, { replace: onMenu });
+}
+
 export function parseAdminModule() {
   const path = getPathname();
   if (path.startsWith('/admin/')) {

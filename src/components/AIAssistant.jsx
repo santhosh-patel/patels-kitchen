@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { MessageSquare, X, Send, Plus, Award, Check, Heart, Flame, Star } from 'lucide-react';
 import logoImg from '../assets/logo.jpg';
 import { useDishes } from '../context/StoreContext';
+import { useFocusTrap } from '../hooks/useFocusTrap';
 
 function FormattedText({ text }) {
   if (!text) return null;
@@ -190,6 +191,7 @@ export default function AIAssistant({ onAddToPlate, isOpen, setIsOpen }) {
   });
 
   const chatEndRef = useRef(null);
+  const panelRef = useFocusTrap(isOpen, () => setIsOpen(false));
 
   // Auto scroll to chat end & persist messages to session state
   useEffect(() => {
@@ -217,10 +219,9 @@ export default function AIAssistant({ onAddToPlate, isOpen, setIsOpen }) {
   }, []);
 
   const promptChips = [
-    { label: "High Protein Muscle Feast", query: "spicy high protein workout meal" },
-    { label: "Healthy Low Oil Weight Loss", query: "healthy low oil vegetarian meal" },
-    { label: "Spicy Biryani & Dessert Pairings", query: "spicy biryani and dessert pairing recommendation" },
-    { label: "Family Dinner under 800", query: "family dinner meal deal under 800 rupees" }
+    { label: 'Veg feast under ₹500', query: 'vegetarian meal under 500 rupees for 2 people' },
+    { label: 'Mild biryani for 2', query: 'mild biryani recommendation for 2 people' },
+    { label: 'High-protein breakfast', query: 'high protein South Indian breakfast options' }
   ];
 
   // Vector-like Scoring & Recommendation Engine
@@ -549,6 +550,7 @@ export default function AIAssistant({ onAddToPlate, isOpen, setIsOpen }) {
   };
 
   const triggerChimeSound = () => {
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
     try {
       const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
       const oscillator = audioCtx.createOscillator();
@@ -605,7 +607,7 @@ export default function AIAssistant({ onAddToPlate, isOpen, setIsOpen }) {
 
       {/* Expanded Sized Minimalist Chat Panel */}
       {isOpen && (
-        <div className="ai-panel" role="dialog" aria-modal="true" aria-label="Chef AI assistant">
+        <div className="ai-panel" ref={panelRef} role="dialog" aria-modal="true" aria-label="Chef AI assistant">
           
           {/* Header (No Settings gear, Named Chef AI) */}
           <div className="ai-panel-header">

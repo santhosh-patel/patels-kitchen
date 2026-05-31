@@ -1,17 +1,31 @@
-import React from 'react';
-import { Printer, Download, Share2, MessageCircle, Mail, Home, ArrowLeft } from 'lucide-react';
+import { Printer, Download, Share2, MessageCircle, Mail, Home, ArrowLeft, MapPin, RotateCcw } from 'lucide-react';
+import { navigate } from '../lib/navigation';
+import { downloadReceiptPdf } from '../lib/receiptPdf';
+
+function getSubtotal(cart) {
+  return cart.reduce((sum, i) => sum + i.price * i.quantity, 0);
+}
+
+function formatInr(amount) {
+  return Number(amount).toLocaleString('en-IN');
+}
 
 function buildReceiptText(orderData) {
-  const subtotal = orderData.cart.reduce((sum, i) => sum + (i.price * i.quantity), 0);
+  const isDelivery = orderData.deliveryMode === 'delivery';
+  const subtotal = getSubtotal(orderData.cart);
   const lines = [
     "PATEL'S KITCHEN — Official Feasting Bill",
     '═'.repeat(40),
     `ORDER ID: ${orderData.orderId}`,
     `DATE: ${orderData.date}`,
-    `DINING MODE: ${orderData.deliveryMode === 'delivery' ? 'Royal Valet Delivery' : 'Dine-In Table'}`,
-    `GUEST: ${orderData.customerName}`,
-    `CONTACT: ${orderData.phone}`,
-    `DESTINATION: ${orderData.address}`,
+    `DINING MODE: ${isDelivery ? 'Royal Valet Delivery' : 'Dine-In Table'}`,
+    ...(isDelivery ? [
+      `GUEST: ${orderData.customerName}`,
+      `CONTACT: ${orderData.phone}`,
+      `DESTINATION: ${orderData.address}`,
+    ] : [
+      `TABLE: ${orderData.address}`,
+    ]),
     '─'.repeat(40),
     ...orderData.cart.map(item =>
       `${item.name} x${item.quantity} — ₹${item.price * item.quantity}`
@@ -24,27 +38,23 @@ function buildReceiptText(orderData) {
     `Taxes (${orderData.taxRate ?? 5}%): ₹${orderData.gst}`,
     `GRAND TOTAL: ₹${orderData.grandTotal}`,
     '═'.repeat(40),
-    `Track your order: ${window.location.origin}/track?id=${orderData.orderId}`,
+    ...(isDelivery ? [`Track your order: ${window.location.origin}/track?id=${orderData.orderId}`] : []),
     'Thank you for dining with the Patels!'
   ];
   return lines.join('\n');
 }
 
-export default function Receipt({ orderData, onHome, onBack }) {
+export default function Receipt({ orderData, onHome, onBack, onOrderAgain }) {
   if (!orderData) return null;
 
+  const isDelivery = orderData.deliveryMode === 'delivery';
+  const subtotal = getSubtotal(orderData.cart);
   const receiptText = buildReceiptText(orderData);
 
   const handlePrint = () => window.print();
 
   const handleDownload = () => {
-    const blob = new Blob([receiptText], { type: 'text/plain' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `PatelsKitchen-${orderData.orderId}.txt`;
-    a.click();
-    URL.revokeObjectURL(url);
+    downloadReceiptPdf(orderData);
   };
 
   const handleShare = async () => {
@@ -74,148 +84,177 @@ export default function Receipt({ orderData, onHome, onBack }) {
   return (
     <div className="receipt-overlay">
       <div className="receipt-modal-container">
-        
+
         <div className="receipt-paper">
-          <div className="receipt-watermark">PATEL'S</div>
-          
-          <h2 style={{ fontFamily: 'var(--font-headings)', fontSize: '1.2rem', margin: 0, letterSpacing: '0.15em' }}>
-            PATEL'S KITCHEN
-          </h2>
+          <div className="receipt-watermark">PATEL&apos;S</div>
+
+          <h2 className="receipt-brand-title">PATEL&apos;S KITCHEN</h2>
           <div className="receipt-header-title">Official Feasting Bill</div>
-          <p style={{ fontSize: '0.7rem', color: '#333333', marginTop: '0.2rem' }}>
-            Authentic South Indian & Hyderabadi Flavours
-          </p>
-          
+          <p className="receipt-tagline">Authentic South Indian &amp; Hyderabadi Flavours</p>
+
           <div className="receipt-divider" />
 
-          <div className="receipt-meta-info">
-            <div><strong>ORDER ID:</strong> {orderData.orderId}</div>
-            <div><strong>DATE:</strong> {orderData.date}</div>
-            <div><strong>DINING MODE:</strong> {orderData.deliveryMode === 'delivery' ? 'Royal Valet Delivery' : 'Dine-In Table'}</div>
-            <div style={{ borderTop: '0.5px dotted #999', margin: '0.3rem 0', paddingTop: '0.3rem' }} />
-            <div><strong>PATEL GUEST:</strong> {orderData.customerName}</div>
-            <div><strong>CONTACT:</strong> {orderData.phone}</div>
-            <div><strong>DESTINATION:</strong> {orderData.address}</div>
+          <div className="receipt-order-id">
+            <span className="receipt-meta-label">ORDER ID</span>
+            <span className="receipt-order-id-value">{orderData.orderId}</span>
           </div>
 
+          <table className="receipt-layout-table receipt-meta-table">
+            <tbody>
+              <tr>
+                <td>DATE</td>
+                <td>{orderData.date}</td>
+              </tr>
+              <tr>
+                <td>DINING MODE</td>
+                <td>{isDelivery ? 'Royal Valet Delivery' : 'Dine-In Table'}</td>
+              </tr>
+              {isDelivery ? (
+                <>
+                  <tr>
+                    <td>GUEST</td>
+                    <td>{orderData.customerName}</td>
+                  </tr>
+                  <tr>
+                    <td>CONTACT</td>
+                    <td>{orderData.phone}</td>
+                  </tr>
+                  <tr>
+                    <td>DESTINATION</td>
+                    <td>{orderData.address}</td>
+                  </tr>
+                </>
+              ) : (
+                <tr>
+                  <td>TABLE</td>
+                  <td>{orderData.address}</td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+
           <div className="receipt-divider" />
 
-          <table className="receipt-items-table">
+          <table className="receipt-layout-table receipt-items-table">
             <thead>
               <tr>
                 <th>DESCRIP.</th>
-                <th style={{ textAlign: 'center' }}>QTY</th>
-                <th style={{ textAlign: 'right' }}>RATE</th>
-                <th style={{ textAlign: 'right' }}>VAL (₹)</th>
+                <th>QTY</th>
+                <th>RATE</th>
+                <th>VAL (₹)</th>
               </tr>
             </thead>
             <tbody>
               {orderData.cart.map((item) => (
                 <tr key={item.id}>
                   <td>{item.name}</td>
-                  <td style={{ textAlign: 'center' }}>{item.quantity}</td>
-                  <td style={{ textAlign: 'right' }}>{item.price}</td>
-                  <td style={{ textAlign: 'right' }}>{item.price * item.quantity}</td>
+                  <td className="receipt-num">{item.quantity}</td>
+                  <td className="receipt-num">₹{formatInr(item.price)}</td>
+                  <td className="receipt-num">₹{formatInr(item.price * item.quantity)}</td>
                 </tr>
               ))}
             </tbody>
           </table>
 
-          <div className="receipt-summary-box">
-            <div className="receipt-summary-row">
-              <span>Feast Subtotal:</span>
-              <span>₹{orderData.cart.reduce((sum, i) => sum + (i.price * i.quantity), 0)}</span>
-            </div>
-            
-            {orderData.discount > 0 && (
-              <div className="receipt-summary-row" style={{ color: 'var(--royal-gold)', fontWeight: 600 }}>
-                <span>Promo Discount ({orderData.couponCode}):</span>
-                <span>-₹{orderData.discount}</span>
-              </div>
-            )}
-
-            {orderData.packagingFee > 0 && (
-              <div className="receipt-summary-row">
-                <span>Royal Packaging Fee:</span>
-                <span>₹{orderData.packagingFee}</span>
-              </div>
-            )}
-
-            {orderData.deliveryFee > 0 && (
-              <div className="receipt-summary-row">
-                <span>Royal Delivery Fee:</span>
-                <span>₹{orderData.deliveryFee}</span>
-              </div>
-            )}
-
-            <div className="receipt-summary-row">
-              <span>Taxes & SGST ({orderData.taxRate ?? 5}%):</span>
-              <span>₹{orderData.gst}</span>
-            </div>
-
-            <div className="receipt-summary-row total">
-              <span>GRAND TOTAL:</span>
-              <span>₹{orderData.grandTotal}</span>
-            </div>
-          </div>
+          <table className="receipt-layout-table receipt-summary-table">
+            <tbody>
+              <tr>
+                <td>Subtotal</td>
+                <td className="receipt-num">₹{formatInr(subtotal)}</td>
+              </tr>
+              {orderData.discount > 0 && (
+                <tr className="receipt-discount-row">
+                  <td>Promo ({orderData.couponCode})</td>
+                  <td className="receipt-num">-₹{formatInr(orderData.discount)}</td>
+                </tr>
+              )}
+              {orderData.packagingFee > 0 && (
+                <tr>
+                  <td>Packaging</td>
+                  <td className="receipt-num">₹{formatInr(orderData.packagingFee)}</td>
+                </tr>
+              )}
+              {orderData.deliveryFee > 0 && (
+                <tr>
+                  <td>Delivery</td>
+                  <td className="receipt-num">₹{formatInr(orderData.deliveryFee)}</td>
+                </tr>
+              )}
+              <tr>
+                <td>GST ({orderData.taxRate ?? 5}%)</td>
+                <td className="receipt-num">₹{formatInr(orderData.gst)}</td>
+              </tr>
+              <tr className="receipt-total-row">
+                <td>GRAND TOTAL</td>
+                <td className="receipt-num">₹{formatInr(orderData.grandTotal)}</td>
+              </tr>
+            </tbody>
+          </table>
 
           <div className="receipt-divider" />
 
           <div className="receipt-footer-text">
             <strong>* SERVING TRADITION SINCE GENERATIONS *</strong>
-            <div style={{ marginTop: '0.4rem', fontSize: '0.65rem' }}>
+            <div className="receipt-footer-sub">
               Thank you for dining with the Patels.<br />
               Delectable legacy awaits you again!
             </div>
           </div>
-
         </div>
 
         <div className="receipt-nav-actions">
-          <button className="btn-secondary receipt-nav-btn" onClick={onBack}>
+          <button type="button" className="receipt-nav-btn receipt-nav-back" onClick={onBack}>
             <ArrowLeft size={16} />
             Back
           </button>
-          <a
-            href={`/track?id=${orderData.orderId}`}
-            className="btn-secondary receipt-nav-btn"
-            style={{ textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '0.4rem' }}
-          >
-            Track Order
-          </a>
-          <button className="btn-primary receipt-nav-btn" onClick={onHome}>
+          {isDelivery && (
+            <button
+              type="button"
+              className="receipt-nav-btn receipt-nav-track"
+              onClick={() => navigate(`/track?id=${orderData.orderId}`)}
+            >
+              <MapPin size={16} />
+              Track Order
+            </button>
+          )}
+          {onOrderAgain && (
+            <button type="button" className="receipt-nav-btn receipt-nav-again" onClick={onOrderAgain}>
+              <RotateCcw size={16} />
+              Order again
+            </button>
+          )}
+          <button type="button" className="receipt-nav-btn receipt-nav-home" onClick={onHome}>
             <Home size={16} />
             Home
           </button>
         </div>
 
         <div className="receipt-action-group">
-          <button className="receipt-action-btn" onClick={handleDownload}>
+          <button type="button" className="receipt-action-btn" onClick={handleDownload} aria-label="Download receipt as PDF">
             <Download size={16} />
-            Download
+            Download PDF
           </button>
 
-          <button className="receipt-action-btn" onClick={handleShare}>
+          <button type="button" className="receipt-action-btn" onClick={handleShare}>
             <Share2 size={16} />
             Share
           </button>
 
-          <button className="receipt-action-btn" onClick={handleWhatsApp}>
+          <button type="button" className="receipt-action-btn" onClick={handleWhatsApp}>
             <MessageCircle size={16} />
             WhatsApp
           </button>
 
-          <button className="receipt-action-btn" onClick={handleEmail}>
+          <button type="button" className="receipt-action-btn" onClick={handleEmail}>
             <Mail size={16} />
             Email
           </button>
 
-          <button className="receipt-action-btn" onClick={handlePrint}>
+          <button type="button" className="receipt-action-btn" onClick={handlePrint}>
             <Printer size={16} />
             Print
           </button>
         </div>
-
       </div>
     </div>
   );

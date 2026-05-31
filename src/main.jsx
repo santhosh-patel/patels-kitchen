@@ -63,9 +63,12 @@ function Router() {
   }
 
   return (
-    <Suspense fallback={<LoadingFallback />}>
-      {content}
-    </Suspense>
+    <>
+      <a href="#main-content" className="skip-link">Skip to main content</a>
+      <Suspense fallback={<LoadingFallback />}>
+        {content}
+      </Suspense>
+    </>
   )
 }
 

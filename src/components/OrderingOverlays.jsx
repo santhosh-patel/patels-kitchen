@@ -22,8 +22,12 @@ export default function OrderingOverlays() {
     handleOrderComplete,
     handleCloseReceipt,
     handleBackFromReceipt,
+    handleOrderAgain,
     handleCheckout,
-    handleAddToPlate
+    handleAddToPlate,
+    minOrderMet,
+    minOrderShortfall,
+    minOrder
   } = useOrdering();
 
   return (
@@ -37,6 +41,9 @@ export default function OrderingOverlays() {
         activeCoupon={activeCoupon}
         setActiveCoupon={setActiveCoupon}
         onCheckout={handleCheckout}
+        minOrderMet={minOrderMet}
+        minOrderShortfall={minOrderShortfall}
+        minOrder={minOrder}
       />
 
       <CheckoutModal
@@ -53,6 +60,7 @@ export default function OrderingOverlays() {
         orderData={completedOrderData}
         onHome={handleCloseReceipt}
         onBack={handleBackFromReceipt}
+        onOrderAgain={handleOrderAgain}
       />
 
       <AIAssistant

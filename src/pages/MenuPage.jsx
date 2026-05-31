@@ -14,12 +14,13 @@ export default function MenuPage() {
     selectedPackaging,
     setSelectedPackaging,
     setIsCartOpen,
-    handleAddToPlate
+    handleAddToPlate,
+    handleUpdateQty
   } = useOrdering();
 
   useEffect(() => {
-    const cat = new URLSearchParams(window.location.search).get('category');
-    if (cat) setActiveCategory(cat);
+    const cat = new URLSearchParams(window.location.search).get('category') || 'all';
+    setActiveCategory(cat);
   }, [setActiveCategory]);
 
   return (
@@ -32,12 +33,14 @@ export default function MenuPage() {
         setActiveCategory={setActiveCategory}
       />
 
-      <main style={{ flex: 1 }}>
+      <main id="main-content" style={{ flex: 1 }}>
         <FoodDiscovery
           onAddToPlate={handleAddToPlate}
+          onUpdateQty={handleUpdateQty}
           activeCategory={activeCategory}
           setActiveCategory={setActiveCategory}
           cart={cart}
+          selectedPackaging={selectedPackaging}
         />
 
         <PackagingShowcase

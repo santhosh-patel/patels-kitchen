@@ -1,7 +1,10 @@
-import React, { useState, useEffect } from 'react';
-import { X, Trash2, ShieldCheck, ShoppingBag } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { X, Trash2, ShieldCheck, ShoppingBag, ChevronDown, ChevronUp } from 'lucide-react';
 import { getCoupons, getSettings } from '../data/store';
 import { calculateOrderTotals } from '../lib/pricing';
+import { navigate } from '../lib/navigation';
+import { getDishImage } from '../lib/dishImage';
+import { useFocusTrap } from '../hooks/useFocusTrap';
 
 export default function CartDrawer({
   isOpen,
@@ -11,13 +14,16 @@ export default function CartDrawer({
   onRemoveItem,
   onCheckout,
   activeCoupon,
-  setActiveCoupon
+  setActiveCoupon,
+  minOrderMet,
+  minOrderShortfall,
+  minOrder
 }) {
   const [couponInput, setCouponInput] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
   const [showOffers, setShowOffers] = useState(false);
+  const [promoOpen, setPromoOpen] = useState(false);
 
-  // Sync coupon code input with activeCoupon state from parent
   useEffect(() => {
     if (activeCoupon) {
       setCouponInput(activeCoupon.code);
@@ -32,6 +38,8 @@ export default function CartDrawer({
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [isOpen, onClose]);
+
+  const drawerRef = useFocusTrap(isOpen, onClose);
 
   if (!isOpen) return null;
 
@@ -52,17 +60,17 @@ export default function CartDrawer({
 
     const coupons = getCoupons();
     const found = coupons.find(c => c.code.toUpperCase() === couponInput.trim().toUpperCase());
-    
+
     if (!found) {
       setErrorMsg('Invalid coupon code');
       return;
     }
-    
+
     if (!found.isActive) {
       setErrorMsg('This coupon code is expired or inactive');
       return;
     }
-    
+
     if (subtotal < found.minOrder) {
       setErrorMsg(`Minimum order of ₹${found.minOrder} required for this coupon`);
       return;
@@ -73,13 +81,11 @@ export default function CartDrawer({
       return;
     }
 
-    // Check expiry date
     if (found.expiryDate && new Date(found.expiryDate) < new Date()) {
       setErrorMsg('This coupon has expired');
       return;
     }
 
-    // Coupon is valid! Apply it!
     setActiveCoupon(found);
     setErrorMsg('');
   };
@@ -90,280 +96,222 @@ export default function CartDrawer({
     setErrorMsg('');
   };
 
+  const browseMenu = () => {
+    onClose();
+    navigate('/menu');
+  };
+
   return (
     <div className="cart-drawer-overlay" onClick={onClose} role="dialog" aria-modal="true" aria-label="Shopping cart">
-      <div className="cart-drawer" onClick={(e) => e.stopPropagation()}>
-        
+      <div className="cart-drawer" ref={drawerRef} onClick={(e) => e.stopPropagation()}>
         <div className="cart-header">
           <div className="cart-title-row">
             <ShoppingBag size={22} style={{ color: 'var(--royal-gold)' }} />
             <h3 className="cart-title">Your Plate</h3>
             <span className="cart-badge">{totalItems} items</span>
           </div>
-          <button className="btn-cart-close" onClick={onClose} aria-label="Close cart">
+          <button type="button" className="btn-cart-close" onClick={onClose} aria-label="Close cart">
             <X size={24} />
           </button>
         </div>
 
         <div className="cart-items-list">
           {cart.length > 0 ? (
-            cart.map((item) => (
-              <div key={item.id} className="cart-item-card">
-                <img src={item.image} alt={item.name} className="cart-item-img" />
-                
-                <div className="cart-item-info">
-                  <h4 className="cart-item-name">{item.name}</h4>
-                  <span className="cart-item-price">₹{item.price * item.quantity}</span>
-                  
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: '0.6rem' }}>
-                    <div className="cart-item-qty">
-                      <button 
-                        className="qty-btn"
-                        onClick={() => onUpdateQty(item.id, item.quantity - 1)}
-                        aria-label="Decrease quantity"
+            cart.map((item) => {
+              const img = getDishImage(item) || item.image;
+              return (
+                <div key={item.id} className="cart-item-card">
+                  {img ? (
+                    <img src={img} alt={item.name} className="cart-item-img" />
+                  ) : (
+                    <div className="cart-item-img cart-item-img-placeholder" aria-hidden="true" />
+                  )}
+
+                  <div className="cart-item-info">
+                    <h4 className="cart-item-name">{item.name}</h4>
+                    <span className="cart-item-price">₹{item.price * item.quantity}</span>
+
+                    <div className="cart-item-actions">
+                      <div className="cart-item-qty">
+                        <button
+                          type="button"
+                          className="qty-btn"
+                          onClick={() => onUpdateQty(item.id, item.quantity - 1)}
+                          aria-label="Decrease quantity"
+                        >
+                          -
+                        </button>
+                        <span className="qty-val">{item.quantity}</span>
+                        <button
+                          type="button"
+                          className="qty-btn"
+                          onClick={() => onUpdateQty(item.id, item.quantity + 1)}
+                          aria-label="Increase quantity"
+                        >
+                          +
+                        </button>
+                      </div>
+
+                      <button
+                        type="button"
+                        className="btn-trash"
+                        onClick={() => onRemoveItem(item.id)}
+                        title="Remove Item"
+                        aria-label={`Remove ${item.name}`}
                       >
-                        -
-                      </button>
-                      <span className="qty-val">{item.quantity}</span>
-                      <button 
-                        className="qty-btn"
-                        onClick={() => onUpdateQty(item.id, item.quantity + 1)}
-                        aria-label="Increase quantity"
-                      >
-                        +
+                        <Trash2 size={16} />
                       </button>
                     </div>
-
-                    <button 
-                      className="btn-trash"
-                      onClick={() => onRemoveItem(item.id)}
-                      title="Remove Item"
-                    >
-                      <Trash2 size={16} />
-                    </button>
                   </div>
                 </div>
-
-              </div>
-            ))
+              );
+            })
           ) : (
-            <div style={{
-              textAlign: 'center',
-              padding: '6rem 2rem',
-              color: '#888888',
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center'
-            }}>
+            <div className="cart-empty-state">
               <ShoppingBag size={48} style={{ color: 'var(--sandstone)', marginBottom: '1.2rem' }} />
-              <h4 style={{ fontFamily: 'var(--font-headings)', color: 'var(--deep-charcoal)' }}>
-                Your plate is empty
-              </h4>
-              <p style={{ fontSize: '0.8rem', marginTop: '0.5rem' }}>
-                Add delectable South Indian specialties or signature biryanis to start your feast.
-              </p>
+              <h4>Your plate is empty</h4>
+              <p>Add South Indian specialties or signature biryanis to start your feast.</p>
+              <button type="button" className="btn-primary" onClick={browseMenu} style={{ marginTop: '1.2rem' }}>
+                Browse Menu
+              </button>
             </div>
           )}
         </div>
 
         {cart.length > 0 && (
           <div className="cart-totals">
-            
             <div className="royal-seal">
               <ShieldCheck size={14} style={{ color: 'var(--royal-gold)' }} />
               <span>Royal Patel Hospitality Guaranteed</span>
             </div>
-            {/* Promo Code Input */}
-            <div className="promo-code-container" style={{
-              background: '#F9F6EE',
-              border: '1px solid rgba(184, 138, 59, 0.15)',
-              borderRadius: '12px',
-              padding: '0.8rem',
-              marginBottom: '1rem'
-            }}>
-              <label style={{
-                fontFamily: 'var(--font-headings)',
-                fontSize: '0.78rem',
-                fontWeight: 700,
-                color: 'var(--traditional-brown)',
-                textTransform: 'uppercase',
-                display: 'block',
-                marginBottom: '0.4rem',
-                letterSpacing: '0.05em'
-              }}>
-                Apply Royal Promo Code
-              </label>
-              
-              {!activeCoupon ? (
-                <>
-                  <div style={{ display: 'flex', gap: '0.5rem' }}>
-                    <input
-                      type="text"
-                      placeholder="Enter code (e.g. WELCOME10)"
-                      value={couponInput}
-                      onChange={(e) => {
-                        setCouponInput(e.target.value);
-                        setErrorMsg('');
-                      }}
-                      style={{
-                        flex: 1,
-                        padding: '0.4rem 0.8rem',
-                        borderRadius: '8px',
-                        border: '1px solid var(--sandstone)',
-                        fontFamily: 'var(--font-body)',
-                        fontSize: '0.85rem',
-                        outline: 'none',
-                        background: 'var(--pure-white)',
-                        textTransform: 'uppercase'
-                      }}
-                    />
-                    <button
-                      onClick={handleApplyCoupon}
-                      style={{
-                        background: 'var(--royal-gold)',
-                        color: 'var(--pure-white)',
-                        border: 'none',
-                        padding: '0.4rem 1rem',
-                        borderRadius: '8px',
-                        fontFamily: 'var(--font-headings)',
-                        fontSize: '0.82rem',
-                        fontWeight: 700,
-                        cursor: 'pointer',
-                        transition: 'all 0.2s'
-                      }}
-                    >
-                      Apply
-                    </button>
-                  </div>
-                  <div style={{ marginTop: '0.4rem', textAlign: 'right' }}>
-                    <button
-                      onClick={() => setShowOffers(!showOffers)}
-                      style={{
-                        background: 'transparent',
-                        border: 'none',
-                        color: 'var(--royal-gold)',
-                        fontSize: '0.72rem',
-                        fontWeight: 700,
-                        cursor: 'pointer',
-                        textDecoration: 'underline',
-                        fontFamily: 'var(--font-headings)'
-                      }}
-                    >
-                      {showOffers ? 'Hide Active Offers' : 'View Active Offers'}
-                    </button>
-                  </div>
-                </>
-              ) : (
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'rgba(184, 138, 59, 0.08)', padding: '0.4rem 0.8rem', borderRadius: '8px', border: '1px dashed var(--royal-gold)' }}>
-                  <div>
-                    <span style={{ fontWeight: 700, fontSize: '0.82rem', color: 'var(--traditional-brown)', fontFamily: 'monospace' }}>{activeCoupon.code}</span>
-                    <span style={{ fontSize: '0.72rem', color: '#666', marginLeft: '0.5rem' }}>({activeCoupon.description})</span>
-                  </div>
-                  <button 
-                    onClick={handleRemoveCoupon}
-                    style={{ background: 'transparent', border: 'none', color: '#cc3333', fontSize: '0.75rem', fontWeight: 600, cursor: 'pointer' }}
-                  >
-                    Remove
-                  </button>
-                </div>
-              )}
 
-              {showOffers && !activeCoupon && (
-                <div style={{
-                  marginTop: '0.6rem',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: '0.4rem',
-                  maxHeight: '120px',
-                  overflowY: 'auto',
-                  background: 'var(--pure-white)',
-                  borderRadius: '8px',
-                  padding: '0.4rem',
-                  border: '1px solid var(--sandstone)'
-                }}>
-                  {getCoupons().filter(c => c.isActive && new Date(c.expiryDate) > new Date()).map(c => (
-                    <div 
-                      key={c.id}
-                      onClick={() => {
-                        setCouponInput(c.code);
-                        setErrorMsg('');
-                        setShowOffers(false);
-                      }}
-                      style={{
-                        display: 'flex',
-                        justifyContent: 'space-between',
-                        alignItems: 'center',
-                        fontSize: '0.72rem',
-                        padding: '0.3rem',
-                        cursor: 'pointer',
-                        borderRadius: '4px',
-                        transition: 'background 0.2s',
-                        borderBottom: '1px solid rgba(184,138,59,0.05)'
-                      }}
-                      onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(184,138,59,0.05)'}
-                      onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
-                    >
-                      <div>
-                        <span style={{ fontWeight: 700, color: 'var(--traditional-brown)', fontFamily: 'monospace' }}>{c.code}</span>
-                        <span style={{ color: '#666', marginLeft: '0.4rem' }}>{c.description}</span>
+            <div className="cart-promo-accordion">
+              <button
+                type="button"
+                className="cart-promo-toggle"
+                onClick={() => setPromoOpen(!promoOpen)}
+                aria-expanded={promoOpen}
+              >
+                <span>Have a promo code?</span>
+                {promoOpen ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+              </button>
+
+              {promoOpen && (
+                <div className="promo-code-container">
+                  {!activeCoupon ? (
+                    <>
+                      <div className="promo-input-row">
+                        <input
+                          type="text"
+                          placeholder="Enter code (e.g. ROYAL20)"
+                          value={couponInput}
+                          onChange={(e) => {
+                            setCouponInput(e.target.value);
+                            setErrorMsg('');
+                          }}
+                          className="promo-input"
+                        />
+                        <button type="button" className="promo-apply-btn" onClick={handleApplyCoupon}>
+                          Apply
+                        </button>
                       </div>
-                      <span style={{ color: 'var(--royal-gold)', fontWeight: 700 }}>Apply</span>
+                      <div style={{ marginTop: '0.4rem', textAlign: 'right' }}>
+                        <button
+                          type="button"
+                          className="promo-offers-link"
+                          onClick={() => setShowOffers(!showOffers)}
+                        >
+                          {showOffers ? 'Hide Active Offers' : 'View Active Offers'}
+                        </button>
+                      </div>
+                    </>
+                  ) : (
+                    <div className="promo-applied">
+                      <div>
+                        <span className="promo-code-text">{activeCoupon.code}</span>
+                        <span className="promo-code-desc">({activeCoupon.description})</span>
+                      </div>
+                      <button type="button" className="promo-remove-btn" onClick={handleRemoveCoupon}>
+                        Remove
+                      </button>
                     </div>
-                  ))}
+                  )}
+
+                  {showOffers && !activeCoupon && (
+                    <div className="promo-offers-list">
+                      {getCoupons().filter(c => c.isActive && new Date(c.expiryDate) > new Date()).map(c => (
+                        <button
+                          key={c.id}
+                          type="button"
+                          className="promo-offer-item"
+                          onClick={() => {
+                            setCouponInput(c.code);
+                            setErrorMsg('');
+                            setShowOffers(false);
+                          }}
+                        >
+                          <div>
+                            <span className="promo-code-text">{c.code}</span>
+                            <span className="promo-code-desc">{c.description}</span>
+                          </div>
+                          <span className="promo-apply-label">Apply</span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+
+                  {errorMsg && <span className="promo-error">{errorMsg}</span>}
                 </div>
               )}
-              
-              {errorMsg && (
-                <span style={{ display: 'block', color: '#cc3333', fontSize: '0.72rem', marginTop: '0.3rem', fontWeight: 600 }}>
-                  {errorMsg}
-                </span>
+            </div>
+
+            <div className="cart-totals-scroll">
+              <div className="totals-row">
+                <span>Subtotal</span>
+                <span>₹{subtotal}</span>
+              </div>
+
+              {discount > 0 && (
+                <div className="totals-row totals-discount">
+                  <span>Discount ({activeCoupon.code})</span>
+                  <span>-₹{discount}</span>
+                </div>
+              )}
+
+              <div className="totals-row">
+                <span>Taxes & GST ({taxRate}%)</span>
+                <span>₹{gst}</span>
+              </div>
+
+              <div className="totals-row totals-muted">
+                <span>Est. delivery fee (if delivery)</span>
+                <span>{deliveryFee > 0 ? `₹${deliveryFee}` : 'Free'}</span>
+              </div>
+
+              <div className="totals-row grand-total">
+                <span>Grand Total</span>
+                <span>₹{grandTotal}</span>
+              </div>
+
+              {!minOrderMet && (
+                <p className="cart-min-order-msg">
+                  Add ₹{minOrderShortfall} more to reach minimum order (₹{minOrder})
+                </p>
               )}
             </div>
 
-            <div className="totals-row">
-              <span>Feast Subtotal</span>
-              <span>₹{subtotal}</span>
+            <div className="cart-checkout-footer">
+              <button
+                type="button"
+                onClick={onCheckout}
+                disabled={!minOrderMet}
+                className="btn-primary cart-checkout-btn"
+              >
+                Order Now
+              </button>
             </div>
-
-            {discount > 0 && (
-              <div className="totals-row" style={{ color: 'var(--royal-gold)', fontWeight: 600 }}>
-                <span>Royal Discount ({activeCoupon.code})</span>
-                <span>-₹{discount}</span>
-              </div>
-            )}
-
-            <div className="totals-row">
-              <span>Taxes & GST ({taxRate}%)</span>
-              <span>₹{gst}</span>
-            </div>
-
-            <div className="totals-row" style={{ fontSize: '0.8rem', color: '#888' }}>
-              <span>Est. delivery fee (if delivery)</span>
-              <span>{deliveryFee > 0 ? `₹${deliveryFee}` : 'Free'}</span>
-            </div>
-
-            <div className="totals-row grand-total">
-              <span>Grand Total</span>
-              <span>₹{grandTotal}</span>
-            </div>
-
-            <button 
-              onClick={onCheckout}
-              disabled={cart.length === 0}
-              className="btn-primary"
-              style={{
-                width: '100%',
-                padding: '1rem',
-                fontSize: '1.05rem',
-                marginTop: '1rem',
-                boxShadow: '0 6px 20px rgba(184, 138, 59, 0.3)'
-              }}
-            >
-              Order Now & Generate Receipt
-            </button>
           </div>
         )}
-
       </div>
     </div>
   );
