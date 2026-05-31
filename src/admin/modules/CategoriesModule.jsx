@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Plus, Pencil, Trash2, GripVertical, X } from 'lucide-react';
-import { getCategories, saveCategories, getDishes } from '../../data/store';
+import { getCategories, saveCategories, getDishes, saveDish } from '../../data/store';
 
 export default function CategoriesModule() {
   const [categories, setCategories] = useState(() => {
@@ -53,8 +53,19 @@ export default function CategoriesModule() {
   };
 
   const handleDelete = (id) => {
-    if (window.confirm('Delete this category? Dishes in this category will become uncategorized.')) {
-      const updated = categories.filter(c => c.id !== id);
+    const cat = categories.find(c => c.id === id);
+    const dishCount = cat?.dishCount || 0;
+    if (dishCount > 0) {
+      if (!window.confirm(`${dishCount} dish(es) use "${cat.name}". Reassign them to Chef Specials and delete this category?`)) {
+        return;
+      }
+      getDishes().filter(d => d.category === id).forEach(d => {
+        saveDish({ ...d, category: 'chefspecials' });
+      });
+    } else if (!window.confirm('Delete this category?')) {
+      return;
+    }
+    const updated = categories.filter(c => c.id !== id);
       const allCat = getCategories().find(c => c.id === 'all') || { id: 'all', name: 'Royal Feast' };
       saveCategories([allCat, ...updated.map(({ id, name }) => ({ id, name }))]);
 
@@ -63,7 +74,6 @@ export default function CategoriesModule() {
         ...c,
         dishCount: dishes.filter(d => d.category === c.id).length
       })));
-    }
   };
 
   const moveUp = (index) => {

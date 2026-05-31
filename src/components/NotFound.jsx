@@ -1,12 +1,9 @@
-import React from 'react';
 import { Landmark, Compass, Sparkles, MoveLeft } from 'lucide-react';
 import logoImg from '../assets/logo.jpg';
+import { navigate } from '../lib/navigation';
 
 export default function NotFound() {
-  const handleGoHome = () => {
-    window.location.hash = '';
-    window.location.reload();
-  };
+  const handleGoHome = () => navigate('/');
 
   return (
     <div style={{
@@ -38,7 +35,7 @@ export default function NotFound() {
         zIndex: 0
       }} />
 
-      <div style={{
+      <div className="not-found-card" style={{
         maxWidth: '550px',
         width: '100%',
         background: 'var(--pure-white)',
@@ -99,7 +96,7 @@ export default function NotFound() {
           Lost in the Royal Manor
         </span>
 
-        <h1 style={{
+        <h1 className="not-found-title" style={{
           fontFamily: 'var(--font-headings)',
           fontSize: '4rem',
           fontWeight: 800,
@@ -160,7 +157,7 @@ export default function NotFound() {
           </button>
 
           <a 
-            href="/#/admin"
+            href="/admin"
             style={{
               display: 'flex',
               alignItems: 'center',

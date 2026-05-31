@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { MessageSquare, X, Send, Plus, Award, Check, Heart, Flame, Star } from 'lucide-react';
 import logoImg from '../assets/logo.jpg';
-import { menuData } from '../data/menuData';
+import { useDishes } from '../context/StoreContext';
 
 function FormattedText({ text }) {
   if (!text) return null;
@@ -148,18 +148,32 @@ function FormattedText({ text }) {
   return <div>{elements}</div>;
 }
 
-export default function AIAssistant({ onAddToPlate, isOpen, setIsOpen, cart }) {
-  // Hardwired API Key configuration directly from .env
-  const apiKey = import.meta.env.VITE_GROQ_API_KEY || import.meta.env.GROQ_API_KEY || '';
+export default function AIAssistant({ onAddToPlate, isOpen, setIsOpen }) {
+  const dishes = useDishes();
+  const menuData = dishes.filter(d => d.available !== false);
+  const findDish = (id) => menuData.find(i => i.id === id);
   
-  // Chat messages
-  const [messages, setMessages] = useState([
-    {
-      id: 1,
-      sender: 'assistant',
-      text: "Pranam! I am Chef AI. How may I assist you with your feast today?",
+  // Chat messages loaded from session state if present
+  const [messages, setMessages] = useState(() => {
+    try {
+      const saved = sessionStorage.getItem('pk_chef_ai_history');
+      return saved ? JSON.parse(saved) : [
+        {
+          id: 1,
+          sender: 'assistant',
+          text: "Pranam! I am Chef AI. How may I assist you with your feast today?",
+        }
+      ];
+    } catch (e) {
+      return [
+        {
+          id: 1,
+          sender: 'assistant',
+          text: "Pranam! I am Chef AI. How may I assist you with your feast today?",
+        }
+      ];
     }
-  ]);
+  });
   const [inputText, setInputText] = useState('');
   const [isTyping, setIsTyping] = useState(false);
   const [dailyMessageCount, setDailyMessageCount] = useState(0);
@@ -177,9 +191,14 @@ export default function AIAssistant({ onAddToPlate, isOpen, setIsOpen, cart }) {
 
   const chatEndRef = useRef(null);
 
-  // Auto scroll to chat end
+  // Auto scroll to chat end & persist messages to session state
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    try {
+      sessionStorage.setItem('pk_chef_ai_history', JSON.stringify(messages));
+    } catch (e) {
+      console.error("Error saving chat history", e);
+    }
   }, [messages, isTyping]);
 
   // Sync and reset daily limit counter on device
@@ -395,28 +414,20 @@ export default function AIAssistant({ onAddToPlate, isOpen, setIsOpen, cart }) {
     // 2. Parse Profile in background
     updateProfileFromText(cleanText);
 
-    // 3. Connect to Groq or local simulation
-    if (apiKey) {
+    // 3. Connect to serverless proxy or local simulation
+    try {
+      await callChefAI(cleanText);
+    } catch (err) {
+      console.error('Chef AI proxy failed, using local fallback.', err);
       try {
-        await callGroqAPI(cleanText);
-      } catch (err) {
-        console.error("Groq Primary Failed. Retrying Fallback 70B...", err);
-        try {
-          await callGroqAPI(cleanText, true);
-        } catch (fallbackErr) {
-          console.error("Fallback Failed. Triggering Concierge Simulator.", fallbackErr);
-          simulateConciergeLogic(cleanText);
-        }
-      }
-    } else {
-      setTimeout(() => {
+        await callChefAI(cleanText, true);
+      } catch (fallbackErr) {
         simulateConciergeLogic(cleanText);
-      }, 1000);
+      }
     }
   };
 
-  // Groq API Call
-  const callGroqAPI = async (userText, useFallback = false) => {
+  const callChefAI = async (userText, useFallback = false) => {
     const selectedModel = useFallback ? "llama-3.3-70b-versatile" : "llama-3.1-8b-instant";
     const recommendedList = getRecommendationScores();
     const topSuggestions = recommendedList.slice(0, 5).map(r => `${r.item.name} (₹${r.item.price}, Category: ${r.item.category}, Spice: ${r.item.spiceLevel}/3, Score: ${r.score}%)`);
@@ -450,35 +461,30 @@ export default function AIAssistant({ onAddToPlate, isOpen, setIsOpen, cart }) {
       }
     ];
 
-    const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Authorization": `Bearer ${apiKey}`,
-        "Content-Type": "application/json"
-      },
+    const response = await fetch('/api/chef-ai', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         model: selectedModel,
-        messages: messagesPayload,
-        temperature: 0.7,
-        max_tokens: 700 // Max Output Cap
+        messages: messagesPayload
       })
     });
 
     if (!response.ok) {
-      throw new Error(`Groq HTTP ${response.status}`);
+      throw new Error(`Chef AI HTTP ${response.status}`);
     }
 
     const data = await response.json();
-    const replyText = data.choices[0].message.content;
+    const replyText = data.content;
 
     let suggestedItem = null;
     let suggestedItems = [];
     const lower = userText.toLowerCase();
 
     if (lower.includes('biryani') || lower.includes('mutton')) {
-      suggestedItem = menuData.find(item => item.id === 'hyd-chicken-dum-biryani');
+      suggestedItem = findDish('hyd-chicken-dum-biryani');
     } else if (lower.includes('dosa') || lower.includes('breakfast')) {
-      suggestedItem = menuData.find(item => item.id === 'ghee-roast-dosa');
+      suggestedItem = findDish('ghee-roast-dosa');
     } else if (lower.includes('sweet') || lower.includes('gulab') || lower.includes('dessert')) {
       suggestedItems = menuData.filter(item => item.id === 'gulab-jamun' || item.id === 'filter-coffee');
     }
@@ -511,10 +517,10 @@ export default function AIAssistant({ onAddToPlate, isOpen, setIsOpen, cart }) {
 
     if (query.includes('protein') || query.includes('workout') || query.includes('gym')) {
       reply = "Pranam! For your high-protein workout targets, I highly suggest our roasted Paneer Tikka or our deep-fried Chicken 65. May I add these protein-dense dishes to your plate?";
-      suggestedItem = menuData.find(i => i.id === 'paneer-tikka');
+      suggestedItem = findDish('paneer-tikka');
     } else if (query.includes('diet') || query.includes('healthy') || query.includes('weight loss')) {
       reply = "For healthy dining and weight goals, our steamed Idli Sambar is oil-free and loaded with high-fiber lentils. Shall I add a plate of Idli Sambar to your plate?";
-      suggestedItem = menuData.find(i => i.id === 'idli-sambar');
+      suggestedItem = findDish('idli-sambar');
     } else if (query.includes('sweet') || query.includes('dessert')) {
       reply = "A royal Patel feast is never complete without a sweet conclusion. I suggest our syrup-soaked Gulab Jamuns paired with Madras Filter Coffee. May I add this sweet pair?";
       suggestedItems = menuData.filter(i => i.id === 'gulab-jamun' || i.id === 'filter-coffee');
@@ -524,7 +530,7 @@ export default function AIAssistant({ onAddToPlate, isOpen, setIsOpen, cart }) {
         suggestedItem = topMatch;
       } else {
         reply = "Pranam! I suggest trying our crispy, golden Ghee Roast Dosa alongside frothed Filter Coffee. May I add these to your plate?";
-        suggestedItem = menuData.find(i => i.id === 'ghee-roast-dosa');
+        suggestedItem = findDish('ghee-roast-dosa');
       }
     }
 
@@ -599,7 +605,7 @@ export default function AIAssistant({ onAddToPlate, isOpen, setIsOpen, cart }) {
 
       {/* Expanded Sized Minimalist Chat Panel */}
       {isOpen && (
-        <div className="ai-panel">
+        <div className="ai-panel" role="dialog" aria-modal="true" aria-label="Chef AI assistant">
           
           {/* Header (No Settings gear, Named Chef AI) */}
           <div className="ai-panel-header">

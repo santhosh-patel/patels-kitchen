@@ -1,11 +1,14 @@
 import React, { useState } from 'react';
 import { Save } from 'lucide-react';
-import { getSettings, saveSettings } from '../../data/store';
+import { getSettings, saveSettings, restoreDemoData } from '../../data/store';
+import { setAdminPin, getAdminPin } from '../AdminGate';
 import logoImg from '../../assets/logo.jpg';
 
 export default function SettingsModule() {
   const [settings, setSettings] = useState(() => getSettings());
   const [saved, setSaved] = useState(false);
+  const [newPin, setNewPin] = useState('');
+  const [pinMessage, setPinMessage] = useState('');
 
   const update = (key, value) => {
     setSettings(prev => ({ ...prev, [key]: value }));
@@ -37,6 +40,25 @@ export default function SettingsModule() {
     setTimeout(() => setSaved(false), 3000);
   };
 
+  const handleChangePin = () => {
+    if (newPin.length < 4 || newPin.length > 6) {
+      setPinMessage('PIN must be 4–6 digits.');
+      return;
+    }
+    setAdminPin(newPin);
+    setNewPin('');
+    setPinMessage('Admin PIN updated successfully.');
+    setTimeout(() => setPinMessage(''), 3000);
+  };
+
+  const handleRestoreDemo = () => {
+    if (window.confirm('Restore all sample data? This clears orders, cart, and resets menu to defaults.')) {
+      restoreDemoData();
+      setSettings(getSettings());
+      alert('Sample data restored.');
+    }
+  };
+
   const days = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
 
   return (
@@ -51,7 +73,7 @@ export default function SettingsModule() {
       {/* General Info */}
       <div className="admin-settings-section">
         <h3>General Information</h3>
-        <div style={{ display: 'flex', gap: '2rem', alignItems: 'flex-start', marginBottom: '1.5rem' }}>
+        <div className="admin-settings-logo-row" style={{ display: 'flex', gap: '2rem', alignItems: 'flex-start', marginBottom: '1.5rem' }}>
           <div style={{ flexShrink: 0 }}>
             <img
               src={logoImg}
@@ -128,7 +150,7 @@ export default function SettingsModule() {
         <h3>Opening Hours</h3>
         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
           {days.map(day => (
-            <div key={day} style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+            <div key={day} className="admin-hours-row" style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
               <span style={{
                 width: '100px', textTransform: 'capitalize', fontWeight: 600,
                 fontSize: '0.85rem'
@@ -255,6 +277,37 @@ export default function SettingsModule() {
             />
           </div>
         </div>
+      </div>
+
+      {/* Security & Data */}
+      <div className="admin-settings-section">
+        <h3>Security & Data</h3>
+        <p style={{ fontSize: '0.82rem', color: '#666', marginBottom: '1rem' }}>
+          Current admin PIN ends with: •••{getAdminPin().slice(-2)} (default is 1234)
+        </p>
+        <div className="admin-form-row">
+          <div className="admin-form-group">
+            <label className="admin-form-label">New Admin PIN (4–6 digits)</label>
+            <input
+              className="admin-form-input"
+              type="password"
+              inputMode="numeric"
+              maxLength={6}
+              value={newPin}
+              onChange={(e) => setNewPin(e.target.value.replace(/\D/g, ''))}
+              placeholder="Enter new PIN"
+            />
+          </div>
+          <div className="admin-form-group" style={{ display: 'flex', alignItems: 'flex-end', gap: '0.5rem' }}>
+            <button type="button" className="admin-btn admin-btn-primary" onClick={handleChangePin}>
+              Change PIN
+            </button>
+            <button type="button" className="admin-btn admin-btn-danger" onClick={handleRestoreDemo}>
+              Restore Sample Data
+            </button>
+          </div>
+        </div>
+        {pinMessage && <p style={{ fontSize: '0.82rem', color: 'var(--royal-gold)', fontWeight: 600 }}>{pinMessage}</p>}
       </div>
     </div>
   );

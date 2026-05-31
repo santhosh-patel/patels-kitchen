@@ -1,9 +1,11 @@
 import React, { useState, useMemo } from 'react';
 import { Plus, Pencil, Trash2, X, Search } from 'lucide-react';
-import { getDishes, saveDish, deleteDish, getCategories } from '../../data/store';
+import { useStore } from '../../context/StoreContext';
+import { saveDish, deleteDish } from '../../data/store';
 
 export default function MenuModule() {
-  const [dishes, setDishes] = useState(() => getDishes());
+  const { dishes, categories: storeCategories, refresh } = useStore();
+  const categories = storeCategories.filter(c => c.id !== 'all');
   const [searchTerm, setSearchTerm] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('all');
   const [showModal, setShowModal] = useState(false);
@@ -11,8 +13,6 @@ export default function MenuModule() {
   const [formData, setFormData] = useState({
     name: '', category: 'breakfast', description: '', price: '', isVeg: true, available: true
   });
-
-  const categories = getCategories().filter(c => c.id !== 'all');
 
   const filtered = useMemo(() => {
     return dishes.filter(dish => {
@@ -61,14 +61,14 @@ export default function MenuModule() {
       };
       saveDish(newDish);
     }
-    setDishes(getDishes());
+    refresh();
     setShowModal(false);
   };
 
   const handleDelete = (id) => {
     if (window.confirm('Are you sure you want to delete this dish?')) {
       deleteDish(id);
-      setDishes(getDishes());
+      refresh();
     }
   };
 
@@ -76,7 +76,7 @@ export default function MenuModule() {
     const dish = dishes.find(d => d.id === id);
     if (dish) {
       saveDish({ ...dish, available: !dish.available });
-      setDishes(getDishes());
+      refresh();
     }
   };
 

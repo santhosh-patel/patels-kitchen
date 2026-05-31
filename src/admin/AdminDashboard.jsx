@@ -1,12 +1,13 @@
-import React, { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import {
   LayoutDashboard, ShoppingCart, UtensilsCrossed, Layers, Users,
-  BarChart3, Tag, Star, Receipt, Settings, Menu, ExternalLink, LogOut
+  BarChart3, Tag, Star, Receipt, Settings, Menu, ExternalLink
 } from 'lucide-react';
 import './admin.css';
 import logoImg from '../assets/logo.jpg';
+import AdminGate from './AdminGate';
+import { getOrders } from '../data/store';
 
-// Module imports
 import DashboardHome from './modules/DashboardHome';
 import OrdersModule from './modules/OrdersModule';
 import MenuModule from './modules/MenuModule';
@@ -44,9 +45,26 @@ const MODULE_MAP = {
   settings: SettingsModule,
 };
 
-export default function AdminDashboard() {
-  const [activeModule, setActiveModule] = useState('dashboard');
+export default function AdminDashboard({ initialModule = 'dashboard' }) {
+  const [activeModule, setActiveModule] = useState(initialModule);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [toast, setToast] = useState(null);
+  const orderCountRef = useRef(getOrders().length);
+
+  useEffect(() => {
+    const handler = () => {
+      const orders = getOrders();
+      if (orders.length > orderCountRef.current) {
+        setToast('New order received!');
+        orderCountRef.current = orders.length;
+        setTimeout(() => setToast(null), 4000);
+      } else {
+        orderCountRef.current = orders.length;
+      }
+    };
+    window.addEventListener('pk_store_update', handler);
+    return () => window.removeEventListener('pk_store_update', handler);
+  }, []);
 
   const ActiveComponent = MODULE_MAP[activeModule] || DashboardHome;
   const activeLabel = NAV_ITEMS.find(n => n.id === activeModule)?.label || 'Dashboard';
@@ -58,93 +76,92 @@ export default function AdminDashboard() {
   const handleNavClick = (id) => {
     setActiveModule(id);
     setSidebarOpen(false);
+    const hash = id === 'dashboard' ? '/admin' : `/admin/${id}`;
+    window.history.replaceState(null, '', hash);
   };
 
   return (
-    <div className="admin-shell">
-      {/* Sidebar */}
-      <aside className={`admin-sidebar ${sidebarOpen ? 'open' : ''}`}>
-        <div className="admin-sidebar-brand">
-          <img src={logoImg} alt="Patel's Kitchen" />
-          <div className="admin-sidebar-brand-text">
-            <span className="admin-sidebar-brand-name">Patel's Kitchen</span>
-            <span className="admin-sidebar-brand-label">Admin Panel</span>
-          </div>
-        </div>
+    <AdminGate>
+      <div className="admin-shell">
+        {toast && <div className="admin-toast">{toast}</div>}
 
-        <nav className="admin-sidebar-nav">
-          {NAV_ITEMS.map((item) => (
-            <button
-              key={item.id}
-              className={`admin-nav-item ${activeModule === item.id ? 'active' : ''}`}
-              onClick={() => handleNavClick(item.id)}
-            >
-              <item.icon size={18} />
-              {item.label}
-            </button>
-          ))}
-        </nav>
-
-        <div className="admin-sidebar-footer">
-          <a
-            href="/"
-            style={{
-              display: 'flex', alignItems: 'center', gap: '0.4rem',
-              color: 'var(--royal-gold)', textDecoration: 'none',
-              fontSize: '0.78rem', fontWeight: 600
-            }}
-          >
-            <ExternalLink size={13} /> View Customer Site
-          </a>
-          <div style={{ marginTop: '0.6rem', color: '#bbb', fontSize: '0.68rem' }}>
-            v1.0.0 · Patel's Kitchen Admin
-          </div>
-        </div>
-      </aside>
-
-      {/* Mobile overlay */}
-      {sidebarOpen && (
-        <div
-          style={{
-            position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.3)',
-            zIndex: 49, display: 'none'
-          }}
-          className="admin-sidebar-overlay"
-          onClick={() => setSidebarOpen(false)}
-        />
-      )}
-
-      {/* Main Content */}
-      <main className="admin-main">
-        {/* Header */}
-        <header className="admin-header">
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem' }}>
-            <button
-              className="admin-hamburger"
-              onClick={() => setSidebarOpen(!sidebarOpen)}
-            >
-              <Menu size={22} />
-            </button>
-            <h1 className="admin-header-title">{activeLabel}</h1>
-          </div>
-          <div className="admin-header-meta">
-            <span>{today}</span>
-            <div style={{
-              width: '32px', height: '32px', borderRadius: '50%',
-              background: 'rgba(184,138,59,0.12)', display: 'flex',
-              alignItems: 'center', justifyContent: 'center',
-              fontSize: '0.78rem', fontWeight: 700, color: 'var(--royal-gold)'
-            }}>
-              SP
+        <aside className={`admin-sidebar ${sidebarOpen ? 'open' : ''}`}>
+          <div className="admin-sidebar-brand">
+            <img src={logoImg} alt="Patel's Kitchen" />
+            <div className="admin-sidebar-brand-text">
+              <span className="admin-sidebar-brand-name">Patel's Kitchen</span>
+              <span className="admin-sidebar-brand-label">Admin Panel</span>
             </div>
           </div>
-        </header>
 
-        {/* Content Area */}
-        <div className="admin-content">
-          <ActiveComponent />
-        </div>
-      </main>
-    </div>
+          <nav className="admin-sidebar-nav">
+            {NAV_ITEMS.map((item) => (
+              <button
+                key={item.id}
+                className={`admin-nav-item ${activeModule === item.id ? 'active' : ''}`}
+                onClick={() => handleNavClick(item.id)}
+              >
+                <item.icon size={18} />
+                {item.label}
+              </button>
+            ))}
+          </nav>
+
+          <div className="admin-sidebar-footer">
+            <a
+              href="/"
+              style={{
+                display: 'flex', alignItems: 'center', gap: '0.4rem',
+                color: 'var(--royal-gold)', textDecoration: 'none',
+                fontSize: '0.78rem', fontWeight: 600
+              }}
+            >
+              <ExternalLink size={13} /> View Customer Site
+            </a>
+            <div style={{ marginTop: '0.6rem', color: '#bbb', fontSize: '0.68rem' }}>
+              v1.0.0 · Admin PIN: 1234
+            </div>
+          </div>
+        </aside>
+
+        {sidebarOpen && (
+          <div
+            className="admin-sidebar-overlay visible"
+            onClick={() => setSidebarOpen(false)}
+            aria-hidden="true"
+          />
+        )}
+
+        <main className="admin-main">
+          <header className="admin-header">
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem' }}>
+              <button
+                className="admin-hamburger"
+                onClick={() => setSidebarOpen(!sidebarOpen)}
+                aria-label="Toggle menu"
+              >
+                <Menu size={22} />
+              </button>
+              <h1 className="admin-header-title">{activeLabel}</h1>
+            </div>
+            <div className="admin-header-meta">
+              <span>{today}</span>
+              <div style={{
+                width: '32px', height: '32px', borderRadius: '50%',
+                background: 'rgba(184,138,59,0.12)', display: 'flex',
+                alignItems: 'center', justifyContent: 'center',
+                fontSize: '0.78rem', fontWeight: 700, color: 'var(--royal-gold)'
+              }}>
+                SP
+              </div>
+            </div>
+          </header>
+
+          <div className="admin-content">
+            <ActiveComponent />
+          </div>
+        </main>
+      </div>
+    </AdminGate>
   );
 }

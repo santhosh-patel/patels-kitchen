@@ -1,55 +1,80 @@
-import { StrictMode, useState, useEffect } from 'react'
+import { StrictMode, useState, useEffect, Suspense, lazy } from 'react'
 import { createRoot } from 'react-dom/client'
 import './index.css'
-import App from './App.jsx'
-import AdminDashboard from './admin/AdminDashboard.jsx'
-import OrderTracker from './components/OrderTracker.jsx'
-import NotFound from './components/NotFound.jsx'
+import { StoreProvider } from './context/StoreContext.jsx'
+import { OrderingProvider } from './context/OrderingContext.jsx'
+import { getActiveView, parseAdminModule } from './lib/navigation.js'
+
+const App = lazy(() => import('./App.jsx'))
+const MenuPage = lazy(() => import('./pages/MenuPage.jsx'))
+const AdminDashboard = lazy(() => import('./admin/AdminDashboard.jsx'))
+const OrderTracker = lazy(() => import('./components/OrderTracker.jsx'))
+const NotFound = lazy(() => import('./components/NotFound.jsx'))
+const LegalPage = lazy(() => import('./pages/LegalPage.jsx'))
+
+function LoadingFallback() {
+  return (
+    <div style={{
+      minHeight: '100vh',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      fontFamily: 'var(--font-headings)',
+      color: 'var(--royal-gold)',
+      letterSpacing: '0.1em'
+    }}>
+      Loading Patel's Kitchen...
+    </div>
+  )
+}
 
 function Router() {
-  const getActiveView = () => {
-    const hash = window.location.hash;
-    if (!hash || hash === '#' || hash === '#/') {
-      return 'home';
-    }
-    if (hash.startsWith('#/admin')) {
-      return 'admin';
-    }
-    if (hash.startsWith('#/track')) {
-      return 'track';
-    }
-    // Handle standard section scroll targets
-    if (hash.startsWith('#') && !hash.startsWith('#/')) {
-      const sectionId = hash.slice(1);
-      if (['about-section', 'menu-section', 'packaging-section', 'hero', 'root'].includes(sectionId)) {
-        return 'home';
-      }
-    }
-    return '404';
-  };
-
-  const [view, setView] = useState(getActiveView());
+  const [view, setView] = useState(getActiveView())
+  const [adminModule, setAdminModule] = useState(parseAdminModule)
 
   useEffect(() => {
-    const handleHashChange = () => {
-      setView(getActiveView());
-    };
-    window.addEventListener('hashchange', handleHashChange);
-    return () => window.removeEventListener('hashchange', handleHashChange);
-  }, []);
+    const sync = () => {
+      setView(getActiveView())
+      setAdminModule(parseAdminModule())
+    }
+    window.addEventListener('popstate', sync)
+    window.addEventListener('hashchange', sync)
+    return () => {
+      window.removeEventListener('popstate', sync)
+      window.removeEventListener('hashchange', sync)
+    }
+  }, [])
 
-  if (view === 'admin') {
-    return <AdminDashboard />;
+  let content
+  if (view === 'menu') {
+    content = <MenuPage key={window.location.search} />
+  } else if (view === 'admin') {
+    content = <AdminDashboard key={adminModule} initialModule={adminModule} />
   } else if (view === 'track') {
-    return <OrderTracker />;
+    content = <OrderTracker />
   } else if (view === '404') {
-    return <NotFound />;
+    content = <NotFound />
+  } else if (view === 'privacy') {
+    content = <LegalPage type="privacy" />
+  } else if (view === 'terms') {
+    content = <LegalPage type="terms" />
+  } else {
+    content = <App />
   }
-  return <App />;
+
+  return (
+    <Suspense fallback={<LoadingFallback />}>
+      {content}
+    </Suspense>
+  )
 }
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>
-    <Router />
+    <StoreProvider>
+      <OrderingProvider>
+        <Router />
+      </OrderingProvider>
+    </StoreProvider>
   </StrictMode>,
 )

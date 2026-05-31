@@ -1,20 +1,42 @@
 import React, { useState } from 'react';
-import { Plus, Trash2, X, Tag, Percent } from 'lucide-react';
+import { Plus, Trash2, X, Tag, Percent, Pencil } from 'lucide-react';
 import { getCoupons, saveCoupon, deleteCoupon } from '../../data/store';
 
 export default function OffersModule() {
   const [couponList, setCouponList] = useState(() => getCoupons());
   const [showModal, setShowModal] = useState(false);
+  const [editingCoupon, setEditingCoupon] = useState(null);
   const [formData, setFormData] = useState({
     code: '', type: 'percentage', value: '', minOrder: '', maxDiscount: '',
     expiryDate: '', usageLimit: '', description: ''
   });
 
-  const handleAdd = () => {
+  const openCreate = () => {
+    setEditingCoupon(null);
+    setFormData({ code: '', type: 'percentage', value: '', minOrder: '', maxDiscount: '', expiryDate: '', usageLimit: '', description: '' });
+    setShowModal(true);
+  };
+
+  const openEdit = (coupon) => {
+    setEditingCoupon(coupon);
+    setFormData({
+      code: coupon.code,
+      type: coupon.type,
+      value: String(coupon.value),
+      minOrder: String(coupon.minOrder),
+      maxDiscount: String(coupon.maxDiscount),
+      expiryDate: coupon.expiryDate ? new Date(coupon.expiryDate).toISOString().slice(0, 10) : '',
+      usageLimit: String(coupon.usageLimit),
+      description: coupon.description || ''
+    });
+    setShowModal(true);
+  };
+
+  const handleSave = () => {
     if (!formData.code || !formData.value) return;
 
-    const newCoupon = {
-      id: `coup-${Date.now()}`,
+    const couponData = {
+      id: editingCoupon?.id || `coup-${Date.now()}`,
       code: formData.code.toUpperCase().replace(/\s/g, ''),
       type: formData.type,
       value: parseFloat(formData.value),
@@ -22,15 +44,15 @@ export default function OffersModule() {
       maxDiscount: parseFloat(formData.maxDiscount) || 999,
       expiryDate: formData.expiryDate ? new Date(formData.expiryDate).toISOString() : new Date(2026, 11, 31).toISOString(),
       usageLimit: parseInt(formData.usageLimit) || 100,
-      usageCount: 0,
-      isActive: true,
+      usageCount: editingCoupon?.usageCount || 0,
+      isActive: editingCoupon?.isActive ?? true,
       description: formData.description
     };
 
-    saveCoupon(newCoupon);
+    saveCoupon(couponData);
     setCouponList(getCoupons());
-
     setShowModal(false);
+    setEditingCoupon(null);
     setFormData({ code: '', type: 'percentage', value: '', minOrder: '', maxDiscount: '', expiryDate: '', usageLimit: '', description: '' });
   };
 
@@ -55,7 +77,7 @@ export default function OffersModule() {
     <div>
       <div className="admin-section-header">
         <h2 className="admin-section-title">Offers & Coupons</h2>
-        <button className="admin-btn admin-btn-primary" onClick={() => setShowModal(true)}>
+        <button className="admin-btn admin-btn-primary" onClick={openCreate}>
           <Plus size={16} /> Create Coupon
         </button>
       </div>
@@ -131,6 +153,9 @@ export default function OffersModule() {
                       <input type="checkbox" checked={coupon.isActive} onChange={() => toggleActive(coupon.id)} />
                       <span className="admin-toggle-slider" />
                     </label>
+                    <button className="admin-btn admin-btn-secondary admin-btn-sm" onClick={() => openEdit(coupon)}>
+                      <Pencil size={13} />
+                    </button>
                     <button className="admin-btn admin-btn-danger admin-btn-sm" onClick={() => handleDeleteCoupon(coupon.id)}>
                       <Trash2 size={13} />
                     </button>
@@ -147,7 +172,7 @@ export default function OffersModule() {
         <div className="admin-modal-overlay" onClick={() => setShowModal(false)}>
           <div className="admin-modal" onClick={(e) => e.stopPropagation()}>
             <div className="admin-modal-header">
-              <h3>Create New Coupon</h3>
+              <h3>{editingCoupon ? 'Edit Coupon' : 'Create New Coupon'}</h3>
               <button className="admin-btn admin-btn-secondary admin-btn-sm" onClick={() => setShowModal(false)}>
                 <X size={16} />
               </button>
@@ -243,7 +268,9 @@ export default function OffersModule() {
             </div>
             <div className="admin-modal-footer">
               <button className="admin-btn admin-btn-secondary" onClick={() => setShowModal(false)}>Cancel</button>
-              <button className="admin-btn admin-btn-primary" onClick={handleAdd}>Create Coupon</button>
+              <button className="admin-btn admin-btn-primary" onClick={handleSave}>
+                {editingCoupon ? 'Update Coupon' : 'Create Coupon'}
+              </button>
             </div>
           </div>
         </div>

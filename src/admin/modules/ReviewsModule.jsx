@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { Star, Trash2, CheckCircle, AlertTriangle } from 'lucide-react';
-import { getReviews, saveReview } from '../../data/store';
+import { getReviews, saveReview, deleteReview } from '../../data/store';
 
 export default function ReviewsModule() {
   const [reviewList, setReviewList] = useState(() => getReviews());
@@ -43,8 +43,7 @@ export default function ReviewsModule() {
 
   const handleDelete = (id) => {
     if (window.confirm('Delete this review?')) {
-      const updated = getReviews().filter(r => r.id !== id);
-      localStorage.setItem('pk_reviews', JSON.stringify(updated));
+      deleteReview(id);
       setReviewList(getReviews());
     }
   };

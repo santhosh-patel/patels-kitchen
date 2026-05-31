@@ -128,6 +128,42 @@ export const saveSettings = (settings) => {
   saveData('pk_settings', settings);
 };
 
+// --- CART & COUPON PERSISTENCE ---
+export const getCart = () => loadData('pk_cart', []);
+export const saveCart = (cart) => saveData('pk_cart', cart);
+export const getActiveCoupon = () => {
+  const data = localStorage.getItem('pk_active_coupon');
+  if (!data) return null;
+  try {
+    return JSON.parse(data);
+  } catch {
+    return null;
+  }
+};
+export const saveActiveCoupon = (coupon) => {
+  if (coupon) {
+    localStorage.setItem('pk_active_coupon', JSON.stringify(coupon));
+  } else {
+    localStorage.removeItem('pk_active_coupon');
+  }
+  window.dispatchEvent(new Event('pk_store_update'));
+};
+
+export const deleteReview = (reviewId) => {
+  const reviews = getReviews().filter(r => r.id !== reviewId);
+  saveData('pk_reviews', reviews);
+};
+
+export const restoreDemoData = () => {
+  const keys = [
+    'pk_dishes', 'pk_categories', 'pk_orders', 'pk_customers',
+    'pk_reviews', 'pk_coupons', 'pk_settings', 'pk_cart', 'pk_active_coupon'
+  ];
+  keys.forEach(k => localStorage.removeItem(k));
+  initializeStore();
+  window.dispatchEvent(new Event('pk_store_update'));
+};
+
 // --- ORDERS CRUD & LIVE SYNC ---
 export const getOrders = () => loadData('pk_orders', seedOrders);
 
@@ -142,6 +178,11 @@ export const addOrder = (order) => {
     subtotal: order.subtotal || 0,
     tax: order.tax || 0,
     deliveryFee: order.deliveryFee || 0,
+    discount: order.discount || 0,
+    couponCode: order.couponCode || null,
+    packagingFee: order.packagingFee || 0,
+    packagingType: order.packagingType || 'none',
+    deliveryMode: order.deliveryMode || 'delivery',
     total: order.total || 0,
     paymentMethod: order.paymentMethod || 'UPI',
     specialInstructions: order.specialInstructions || '',

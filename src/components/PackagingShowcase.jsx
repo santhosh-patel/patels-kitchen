@@ -19,13 +19,7 @@ export default function PackagingShowcase({ selectedPackaging, setSelectedPackag
           Sensory Touchpoints
         </span>
         
-        <h2 style={{
-          fontSize: '2.5rem',
-          fontFamily: 'var(--font-headings)',
-          color: 'var(--deep-charcoal)',
-          marginTop: '0.5rem',
-          marginBottom: '1rem'
-        }}>
+        <h2 className="section-title" style={{ marginTop: '0.5rem', marginBottom: '1rem' }}>
           Royal Takeaway Packaging
         </h2>
         

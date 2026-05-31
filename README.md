@@ -1,16 +1,69 @@
-# React + Vite
+# Patel's Kitchen
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+A polished restaurant web app for **Patel's Kitchen**. Browse a 50-item menu, apply coupons, checkout with UPI, track orders, and consult **Chef AI** — persisted in the browser via `localStorage`. Includes a full admin dashboard for menu, orders, analytics, and settings.
 
-Currently, two official plugins are available:
+## Routes
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+| URL | Page |
+|-----|------|
+| `/` | Home — story, heritage, AI intro |
+| `/menu` | Full menu, packaging, ordering |
+| `/track?id=PK-xxxxx` | Order tracking |
+| `/admin` | Admin dashboard (PIN: `1234`) |
+| `/privacy`, `/terms` | Legal pages |
 
-## React Compiler
+## Local Development
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+```bash
+npm install
+npm run dev
+```
 
-## Expanding the ESLint configuration
+Open [http://localhost:5173](http://localhost:5173)
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+### Chef AI (optional locally)
+
+For local dev, Chef AI uses the **local fallback** unless you run with Vercel CLI:
+
+```bash
+npx vercel dev
+```
+
+Set `GROQ_API_KEY` in `.env` (see `.env.example`).
+
+## Deploy to Vercel
+
+1. Push this repo to GitHub
+2. Import project in [Vercel](https://vercel.com)
+3. Framework preset: **Vite**
+4. Add environment variable: `GROQ_API_KEY` = your [Groq API key](https://console.groq.com)
+5. Deploy
+
+Build settings are in `vercel.json` (`npm run build` → `dist/`).
+
+## Notes
+
+| Topic | Detail |
+|-------|--------|
+| **Data storage** | Orders, menu, settings stored in browser `localStorage` — per device |
+| **Admin PIN** | Default `1234` — change in Admin → Settings |
+| **Sample coupon** | Try `ROYAL20` in cart |
+| **Reset data** | Admin → Settings → Restore Sample Data |
+
+## Scripts
+
+| Command | Description |
+|---------|-------------|
+| `npm run dev` | Start Vite dev server |
+| `npm run build` | Production build to `dist/` |
+| `npm run preview` | Preview production build |
+| `npm run lint` | ESLint |
+
+## Architecture
+
+- **Frontend:** React 19 + Vite 8
+- **State:** React Context + `localStorage` (`src/data/store.js`)
+- **Routing:** Path-based (`/`, `/menu`, `/admin`, …)
+- **AI:** `api/chef-ai.js` Vercel serverless function (Groq proxy)
+
+No database required.

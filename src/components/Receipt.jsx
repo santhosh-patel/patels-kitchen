@@ -1,5 +1,5 @@
 import React from 'react';
-import { Printer, RefreshCw, Download, Share2, MessageCircle, Mail } from 'lucide-react';
+import { Printer, Download, Share2, MessageCircle, Mail, Home, ArrowLeft } from 'lucide-react';
 
 function buildReceiptText(orderData) {
   const subtotal = orderData.cart.reduce((sum, i) => sum + (i.price * i.quantity), 0);
@@ -18,16 +18,19 @@ function buildReceiptText(orderData) {
     ),
     '─'.repeat(40),
     `Subtotal: ₹${subtotal}`,
+    ...(orderData.discount > 0 ? [`Discount (${orderData.couponCode}): -₹${orderData.discount}`] : []),
     ...(orderData.packagingFee > 0 ? [`Packaging: ₹${orderData.packagingFee}`] : []),
-    `Taxes (5%): ₹${orderData.gst}`,
+    ...(orderData.deliveryFee > 0 ? [`Delivery: ₹${orderData.deliveryFee}`] : []),
+    `Taxes (${orderData.taxRate ?? 5}%): ₹${orderData.gst}`,
     `GRAND TOTAL: ₹${orderData.grandTotal}`,
     '═'.repeat(40),
+    `Track your order: ${window.location.origin}/track?id=${orderData.orderId}`,
     'Thank you for dining with the Patels!'
   ];
   return lines.join('\n');
 }
 
-export default function Receipt({ orderData, onClose }) {
+export default function Receipt({ orderData, onHome, onBack }) {
   if (!orderData) return null;
 
   const receiptText = buildReceiptText(orderData);
@@ -124,6 +127,13 @@ export default function Receipt({ orderData, onClose }) {
               <span>₹{orderData.cart.reduce((sum, i) => sum + (i.price * i.quantity), 0)}</span>
             </div>
             
+            {orderData.discount > 0 && (
+              <div className="receipt-summary-row" style={{ color: 'var(--royal-gold)', fontWeight: 600 }}>
+                <span>Promo Discount ({orderData.couponCode}):</span>
+                <span>-₹{orderData.discount}</span>
+              </div>
+            )}
+
             {orderData.packagingFee > 0 && (
               <div className="receipt-summary-row">
                 <span>Royal Packaging Fee:</span>
@@ -131,8 +141,15 @@ export default function Receipt({ orderData, onClose }) {
               </div>
             )}
 
+            {orderData.deliveryFee > 0 && (
+              <div className="receipt-summary-row">
+                <span>Royal Delivery Fee:</span>
+                <span>₹{orderData.deliveryFee}</span>
+              </div>
+            )}
+
             <div className="receipt-summary-row">
-              <span>Taxes & SGST (5%):</span>
+              <span>Taxes & SGST ({orderData.taxRate ?? 5}%):</span>
               <span>₹{orderData.gst}</span>
             </div>
 
@@ -152,6 +169,24 @@ export default function Receipt({ orderData, onClose }) {
             </div>
           </div>
 
+        </div>
+
+        <div className="receipt-nav-actions">
+          <button className="btn-secondary receipt-nav-btn" onClick={onBack}>
+            <ArrowLeft size={16} />
+            Back
+          </button>
+          <a
+            href={`/track?id=${orderData.orderId}`}
+            className="btn-secondary receipt-nav-btn"
+            style={{ textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '0.4rem' }}
+          >
+            Track Order
+          </a>
+          <button className="btn-primary receipt-nav-btn" onClick={onHome}>
+            <Home size={16} />
+            Home
+          </button>
         </div>
 
         <div className="receipt-action-group">
@@ -178,11 +213,6 @@ export default function Receipt({ orderData, onClose }) {
           <button className="receipt-action-btn" onClick={handlePrint}>
             <Printer size={16} />
             Print
-          </button>
-
-          <button className="btn-primary receipt-action-btn receipt-action-primary" onClick={onClose}>
-            <RefreshCw size={16} />
-            Feast Again
           </button>
         </div>
 

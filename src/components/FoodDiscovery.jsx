@@ -1,14 +1,27 @@
 import React, { useState } from 'react';
 import { Search, Flame, Star, Sparkles, Plus, Check, Leaf, Heart } from 'lucide-react';
-import { menuData, MENU_CATEGORIES } from '../data/menuData';
+import { useDishes, useCategories, useReviews, getDishRating } from '../context/StoreContext';
+
+const CATEGORY_GRADIENTS = {
+  breakfast: 'linear-gradient(135deg, #FFF8E7 0%, #F5DEB3 100%)',
+  starters: 'linear-gradient(135deg, #FFE4E1 0%, #FFB6A3 100%)',
+  biryanis: 'linear-gradient(135deg, #FFF0E0 0%, #E8C99B 100%)',
+  maincourse: 'linear-gradient(135deg, #F0FFF0 0%, #C8E6C9 100%)',
+  breads: 'linear-gradient(135deg, #FFF8DC 0%, #F0E68C 100%)',
+  beverages: 'linear-gradient(135deg, #E8F4FD 0%, #B3D9F2 100%)',
+  desserts: 'linear-gradient(135deg, #FFF0F5 0%, #FFB6C1 100%)',
+  chefspecials: 'linear-gradient(135deg, #F3E5F5 0%, #CE93D8 100%)'
+};
 
 export default function FoodDiscovery({ onAddToPlate, activeCategory, setActiveCategory, cart }) {
+  const allDishes = useDishes();
+  const categories = useCategories();
+  const reviews = useReviews();
   const [searchQuery, setSearchQuery] = useState('');
   const [filterVeg, setFilterVeg] = useState(false);
   const [filterSignature, setFilterSignature] = useState(false);
 
-  // Filter logic
-  const filteredItems = menuData.filter((item) => {
+  const filteredItems = allDishes.filter((item) => {
     // Category match
     const categoryMatch = activeCategory === 'all' || item.category === activeCategory;
     // Search query match
@@ -29,32 +42,18 @@ export default function FoodDiscovery({ onAddToPlate, activeCategory, setActiveC
   };
 
   return (
-    <section id="menu-section" style={{
-      padding: '5rem 2rem',
+    <section id="menu-section" className="page-section" style={{
       backgroundColor: 'var(--ivory)',
       position: 'relative'
     }}>
-      <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
+      <div className="page-container">
         
         {/* Section Header */}
-        <div style={{ textAlign: 'center', marginBottom: '3.5rem' }}>
-          <span style={{
-            fontFamily: 'var(--font-headings)',
-            color: 'var(--royal-gold)',
-            fontSize: '0.85rem',
-            fontWeight: 700,
-            textTransform: 'uppercase',
-            letterSpacing: '0.2em'
-          }}>
+        <div style={{ textAlign: 'center', marginBottom: 'clamp(2rem, 5vw, 3.5rem)' }}>
+          <span className="section-eyebrow">
             Explore Our Legacy
           </span>
-          <h2 style={{
-            fontSize: '2.5rem',
-            fontFamily: 'var(--font-headings)',
-            color: 'var(--deep-charcoal)',
-            marginTop: '0.5rem',
-            marginBottom: '1rem'
-          }}>
+          <h2 className="section-title" style={{ marginTop: '0.5rem', marginBottom: '1rem' }}>
             The Royal Menu
           </h2>
           <div className="gold-divider">
@@ -65,55 +64,21 @@ export default function FoodDiscovery({ onAddToPlate, activeCategory, setActiveC
           </p>
         </div>
 
-        {/* Filter & Search Bar */}
-        <div style={{
-          background: 'var(--pure-white)',
-          borderRadius: '24px',
-          padding: '1.2rem 2rem',
-          boxShadow: 'var(--soft-shadow)',
-          border: '1px solid rgba(216, 196, 165, 0.25)',
-          marginBottom: '3rem',
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          gap: '1.5rem',
-          flexWrap: 'wrap'
-        }}>
-          {/* Category Tabs */}
-          <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
-            {MENU_CATEGORIES.map((cat) => (
+        <div className="menu-filter-bar">
+          <div className="menu-filter-categories">
+            {categories.map((cat) => (
               <button
                 key={cat.id}
                 onClick={() => setActiveCategory(cat.id)}
-                style={{
-                  background: activeCategory === cat.id ? 'var(--royal-gold)' : 'transparent',
-                  border: activeCategory === cat.id ? 'none' : '1px solid rgba(184, 138, 59, 0.15)',
-                  color: activeCategory === cat.id ? 'var(--pure-white)' : 'var(--deep-charcoal)',
-                  padding: '0.5rem 1.2rem',
-                  borderRadius: '99px',
-                  fontSize: '0.8rem',
-                  fontWeight: 700,
-                  cursor: 'pointer',
-                  letterSpacing: '0.03em',
-                  transition: 'all 0.3s ease'
-                }}
+                className={`menu-cat-btn ${activeCategory === cat.id ? 'active' : ''}`}
               >
                 {cat.name}
               </button>
             ))}
           </div>
 
-          {/* Quick Dietary Toggles & Search */}
-          <div style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '1.5rem',
-            flexWrap: 'wrap',
-            flexGrow: 1,
-            justifyContent: 'flex-end'
-          }}>
-            {/* Diet Checkboxes */}
-            <div style={{ display: 'flex', gap: '1.2rem', alignItems: 'center' }}>
+          <div className="menu-filter-controls">
+            <div className="menu-filter-toggles">
               <label style={{
                 display: 'flex',
                 alignItems: 'center',
@@ -163,32 +128,14 @@ export default function FoodDiscovery({ onAddToPlate, activeCategory, setActiveC
               </label>
             </div>
 
-            {/* Search Input Box */}
-            <div style={{
-              display: 'flex',
-              alignItems: 'center',
-              background: 'var(--heritage-cream)',
-              border: '1.5px solid var(--sandstone)',
-              borderRadius: '99px',
-              padding: '0.4rem 1rem',
-              width: '240px',
-              maxWidth: '100%'
-            }}>
-              <Search size={16} style={{ color: '#888888', marginRight: '0.5rem' }} />
+            <div className="menu-filter-search">
+              <Search size={16} style={{ color: '#888888', marginRight: '0.5rem', flexShrink: 0 }} aria-hidden="true" />
               <input 
-                type="text"
+                type="search"
                 placeholder="Search recipe..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                style={{
-                  background: 'transparent',
-                  border: 'none',
-                  outline: 'none',
-                  width: '100%',
-                  fontSize: '0.85rem',
-                  fontFamily: 'var(--font-body)',
-                  color: 'var(--deep-charcoal)'
-                }}
+                aria-label="Search menu items"
               />
             </div>
           </div>
@@ -199,13 +146,34 @@ export default function FoodDiscovery({ onAddToPlate, activeCategory, setActiveC
           <div className="food-grid">
             {filteredItems.map((item, index) => {
               const qtyInCart = getItemQty(item.id);
+              const isUnavailable = item.available === false;
+              const reviewRating = getDishRating(reviews, item.id);
+              const displayRating = reviewRating ?? item.rating;
               
               return (
                 <div key={item.id} style={{
                   animation: 'fadeIn 0.6s ease forwards',
-                  animationDelay: `${index * 0.02}s`
+                  animationDelay: `${index * 0.02}s`,
+                  opacity: isUnavailable ? 0.65 : 1
                 }}>
-                  <div className="food-card">
+                  <div className="food-card" style={{ position: 'relative' }}>
+                    {isUnavailable && (
+                      <span style={{
+                        position: 'absolute',
+                        top: '12px',
+                        left: '12px',
+                        zIndex: 3,
+                        background: '#666',
+                        color: '#fff',
+                        fontSize: '0.65rem',
+                        fontWeight: 700,
+                        padding: '0.25rem 0.6rem',
+                        borderRadius: '99px',
+                        textTransform: 'uppercase'
+                      }}>
+                        Unavailable
+                      </span>
+                    )}
                     
                     {/* Food Image Wrapper */}
                     <div className="food-img-container">
@@ -233,6 +201,8 @@ export default function FoodDiscovery({ onAddToPlate, activeCategory, setActiveC
                         src={item.image} 
                         alt={item.name} 
                         className="food-img"
+                        loading="lazy"
+                        style={!item.image ? { background: CATEGORY_GRADIENTS[item.category] || '#f5f5f5', objectFit: 'cover' } : undefined}
                       />
                     </div>
 
@@ -257,7 +227,7 @@ export default function FoodDiscovery({ onAddToPlate, activeCategory, setActiveC
                       <div className="food-meta">
                         <div className="food-rating">
                           <Star size={14} fill="var(--royal-gold)" stroke="none" />
-                          <span>{item.rating.toFixed(1)}</span>
+                          <span>{displayRating?.toFixed?.(1) ?? item.rating?.toFixed?.(1)}</span>
                         </div>
 
                         {/* Spice Indicator */}
@@ -273,7 +243,8 @@ export default function FoodDiscovery({ onAddToPlate, activeCategory, setActiveC
 
                         {/* Upgraded Better & Efficient Add Button */}
                         <button 
-                          onClick={() => onAddToPlate(item)}
+                          onClick={() => !isUnavailable && onAddToPlate(item)}
+                          disabled={isUnavailable}
                           className={`btn-add-plate ${qtyInCart > 0 ? 'added' : ''}`}
                           title={qtyInCart > 0 ? `Add one more (Currently ${qtyInCart} on plate)` : 'Add to Plate'}
                           aria-label={`Add ${item.name} to Plate`}

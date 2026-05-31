@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { X, Shield, Truck, Landmark, User, MapPin, Phone, Box, ShoppingBag, CheckCircle2, QrCode } from 'lucide-react';
-import { addOrder, calculateDiscount } from '../data/store';
+import { addOrder, getSettings } from '../data/store';
+import { calculateOrderTotals } from '../lib/pricing';
 
 export default function CheckoutModal({
   isOpen,
@@ -8,7 +9,8 @@ export default function CheckoutModal({
   cart,
   onOrderComplete,
   activeCoupon,
-  setActiveCoupon
+  setActiveCoupon,
+  initialPackaging = 'none'
 }) {
   const [step, setStep] = useState(1);
   const [deliveryMode, setDeliveryMode] = useState('dinein');
@@ -18,21 +20,23 @@ export default function CheckoutModal({
     name: '',
     phone: '',
     address: '',
+    tableNumber: '',
     notes: ''
   });
 
   const isDineIn = deliveryMode === 'dinein';
   const paymentStep = isDineIn ? 2 : 3;
+  const settings = getSettings();
 
   useEffect(() => {
     if (isOpen) {
       setStep(1);
       setDeliveryMode('dinein');
-      setCheckoutPackaging('none');
+      setCheckoutPackaging(initialPackaging === 'none' ? 'none' : initialPackaging);
       setPaymentPhase('idle');
-      setFormData({ name: '', phone: '', address: '', notes: '' });
+      setFormData({ name: '', phone: '', address: '', tableNumber: '', notes: '' });
     }
-  }, [isOpen]);
+  }, [isOpen, initialPackaging]);
 
   useEffect(() => {
     if (step !== paymentStep || paymentPhase !== 'idle') return;
@@ -41,16 +45,18 @@ export default function CheckoutModal({
 
   useEffect(() => {
     if (paymentPhase !== 'qr') return;
-    const timer = setTimeout(() => setPaymentPhase('success'), 3000);
+    const timer = setTimeout(() => setPaymentPhase('success'), 15000);
     return () => clearTimeout(timer);
   }, [paymentPhase]);
 
-  const subtotal = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
-  const packagingFee = !isDineIn && checkoutPackaging === 'box' ? 30 : (!isDineIn && checkoutPackaging === 'bag' ? 15 : 0);
-  const discount = activeCoupon ? calculateDiscount(activeCoupon, subtotal) : 0;
-  const discountedSubtotal = subtotal - discount;
-  const gst = Math.round(discountedSubtotal * 0.05);
-  const grandTotal = discountedSubtotal + packagingFee + gst;
+  const totals = calculateOrderTotals({
+    cart,
+    deliveryMode,
+    packaging: checkoutPackaging,
+    coupon: activeCoupon,
+    settings
+  });
+  const { subtotal, discount, packagingFee, deliveryFee, tax: gst, grandTotal, taxRate } = totals;
 
   const handleInputChange = (field, val) => {
     setFormData(prev => ({ ...prev, [field]: val }));
@@ -58,18 +64,21 @@ export default function CheckoutModal({
 
   const completeOrder = useCallback(() => {
     const orderId = `PK-${Math.floor(10000 + Math.random() * 90000)}`;
+    const timestamp = new Date().toISOString();
+    const dineInAddress = formData.tableNumber
+      ? `Table ${formData.tableNumber} - Royal Dining Hall`
+      : 'Table 14 - Royal Dining Hall';
     const finalOrder = addOrder({
       id: orderId,
       customerName: formData.name || 'Honored Patel Guest',
       phone: formData.phone || '+91 98480 22338',
       deliveryMode,
-      address: isDineIn
-        ? (formData.address || 'Table 14 - Royal Dining Hall')
-        : (formData.address || 'Royal Suite Delivery'),
+      address: isDineIn ? dineInAddress : (formData.address || 'Royal Suite Delivery'),
       packagingFee,
+      packagingType: checkoutPackaging,
       subtotal,
       tax: gst,
-      deliveryFee: isDineIn ? 0 : 40,
+      deliveryFee,
       total: grandTotal,
       items: cart.map(item => ({
         ...item,
@@ -79,10 +88,32 @@ export default function CheckoutModal({
       discount,
       specialInstructions: formData.notes || '',
       deliveryType: isDineIn ? 'Dine-in' : 'Delivery',
-      timestamp: new Date().toISOString()
+      timestamp
     });
-    onOrderComplete(finalOrder);
-  }, [onOrderComplete, formData, deliveryMode, isDineIn, packagingFee, gst, grandTotal, cart, activeCoupon, subtotal, discount]);
+
+    onOrderComplete({
+      orderId: finalOrder.id,
+      date: new Date(timestamp).toLocaleString('en-IN', {
+        day: 'numeric',
+        month: 'short',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+      }),
+      deliveryMode,
+      customerName: finalOrder.customerName,
+      phone: finalOrder.phone,
+      address: finalOrder.address,
+      cart: cart.map(item => ({ ...item })),
+      packagingFee,
+      deliveryFee,
+      discount,
+      couponCode: activeCoupon ? activeCoupon.code : null,
+      gst,
+      taxRate,
+      grandTotal
+    });
+  }, [onOrderComplete, formData, deliveryMode, isDineIn, checkoutPackaging, packagingFee, deliveryFee, gst, grandTotal, cart, activeCoupon, subtotal, discount, taxRate]);
 
   useEffect(() => {
     if (paymentPhase !== 'success') return;
@@ -90,7 +121,14 @@ export default function CheckoutModal({
     return () => clearTimeout(timer);
   }, [paymentPhase, completeOrder]);
 
-  if (!isOpen) return null;
+  useEffect(() => {
+    if (!isOpen) return;
+    const onKey = (e) => { if (e.key === 'Escape') onClose(); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [isOpen, onClose]);
+
+  if (!isOpen || cart.length === 0) return null;
 
   const handleDeliveryModeChange = (mode) => {
     setDeliveryMode(mode);
@@ -137,7 +175,7 @@ export default function CheckoutModal({
   const showFooter = !isOnPayment || paymentPhase === 'idle';
 
   return (
-    <div className="checkout-overlay" onClick={onClose}>
+    <div className="checkout-overlay" onClick={onClose} role="dialog" aria-modal="true" aria-label="Checkout">
       <div className="checkout-modal" onClick={(e) => e.stopPropagation()}>
         
         <div className="checkout-header">
@@ -220,6 +258,22 @@ export default function CheckoutModal({
                 </div>
               )}
 
+              {deliveryMode === 'dinein' && (
+                <div className="form-group" style={{ marginTop: '1rem' }}>
+                  <label className="form-label">
+                    <Landmark size={12} style={{ display: 'inline', marginRight: '4px', verticalAlign: 'middle' }} />
+                    Table Number (Optional)
+                  </label>
+                  <input
+                    type="text"
+                    className="form-input"
+                    placeholder="e.g. 14 — defaults to Table 14"
+                    value={formData.tableNumber}
+                    onChange={(e) => handleInputChange('tableNumber', e.target.value)}
+                  />
+                </div>
+              )}
+
               <div style={{ background: 'var(--heritage-cream)', borderRadius: '16px', padding: '1.2rem', marginTop: '1.5rem' }}>
                 <h5 style={{ fontFamily: 'var(--font-headings)', fontSize: '0.85rem', marginBottom: '0.6rem', color: 'var(--traditional-brown)' }}>
                   Feast Valuation:
@@ -240,6 +294,16 @@ export default function CheckoutModal({
                     <span>₹{packagingFee}</span>
                   </div>
                 )}
+                {deliveryFee > 0 && (
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', marginBottom: '0.3rem' }}>
+                    <span>Royal Delivery Fee</span>
+                    <span>₹{deliveryFee}</span>
+                  </div>
+                )}
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', marginBottom: '0.3rem' }}>
+                  <span>Taxes & GST ({taxRate}%)</span>
+                  <span>₹{gst}</span>
+                </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', borderTop: '1px dashed var(--sandstone)', paddingTop: '0.5rem', marginTop: '0.5rem', fontWeight: 700 }}>
                   <span>Grand total to pay:</span>
                   <span style={{ color: 'var(--royal-gold)' }}>₹{grandTotal}</span>
@@ -320,8 +384,11 @@ export default function CheckoutModal({
                   <h4 style={{ fontFamily: 'var(--font-headings)', fontSize: '1.1rem', marginBottom: '0.5rem', color: 'var(--traditional-brown)' }}>
                     Scan to Pay
                   </h4>
-                  <p style={{ fontSize: '0.8rem', color: '#666', marginBottom: '1.2rem' }}>
+                  <p style={{ fontSize: '0.8rem', color: '#666', marginBottom: '0.5rem' }}>
                     Scan the UPI QR code with any payment app
+                  </p>
+                  <p style={{ fontSize: '0.75rem', color: 'var(--royal-gold)', fontWeight: 600, marginBottom: '1.2rem' }}>
+                    Payment confirms automatically in 15 seconds
                   </p>
 
                   <div className="qr-code-frame">

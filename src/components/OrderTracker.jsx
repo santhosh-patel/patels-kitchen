@@ -14,6 +14,8 @@ export default function OrderTracker() {
 
   // Extract ID from URL Hash e.g. #/track?id=PK-12345
   const getOrderIdFromUrl = () => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('id')) return params.get('id');
     const hash = window.location.hash;
     const match = hash.match(/[?&]id=([^&]+)/);
     return match ? match[1] : '';
@@ -56,7 +58,8 @@ export default function OrderTracker() {
   const handleSearchSubmit = (e) => {
     e.preventDefault();
     if (!orderIdInput.trim()) return;
-    window.location.hash = `#/track?id=${orderIdInput.trim().toUpperCase()}`;
+    window.history.replaceState(null, '', `/track?id=${orderIdInput.trim().toUpperCase()}`);
+    lookupOrder(orderIdInput.trim());
   };
 
   // Mapping internal status pool into user-facing vertical tracking steps
@@ -132,40 +135,17 @@ export default function OrderTracker() {
   const trackingSteps = order ? getTrackingSteps(order.deliveryType, order.status) : [];
 
   return (
-    <div style={{
-      minHeight: '100vh',
-      background: 'var(--light-ivory)',
-      fontFamily: 'var(--font-body)',
-      color: 'var(--deep-charcoal)',
-      padding: '2rem 1rem'
-    }}>
-      <div style={{ maxWidth: '750px', margin: '0 auto' }}>
+    <div className="standalone-page" style={{ background: 'var(--ivory)' }}>
+      <div className="standalone-container">
         
-        {/* Navigation / Header */}
-        <header style={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          marginBottom: '2rem',
-          borderBottom: '1px solid rgba(184, 138, 59, 0.15)',
-          paddingBottom: '1.2rem'
-        }}>
-          <a href="/#/" style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '0.5rem',
-            color: 'var(--traditional-brown)',
-            textDecoration: 'none',
-            fontSize: '0.9rem',
-            fontWeight: 700,
-            fontFamily: 'var(--font-headings)'
-          }}>
+        <header className="standalone-header">
+          <a href="/" className="standalone-back-link">
             <ArrowLeft size={16} /> Back to Palace
           </a>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
-            <img src={logoImg} alt="Logo" style={{ width: '32px', height: '32px', borderRadius: '50%', border: '1px solid var(--royal-gold)' }} />
-            <span style={{ fontFamily: 'var(--font-headings)', fontWeight: 800, fontSize: '1rem', letterSpacing: '0.05em' }}>PATEL'S KITCHEN</span>
+          <div className="standalone-brand">
+            <img src={logoImg} alt="Logo" style={{ width: '32px', height: '32px', borderRadius: '50%', border: '1px solid var(--royal-gold)', flexShrink: 0 }} />
+            <span>PATEL'S KITCHEN</span>
           </div>
         </header>
 
@@ -176,31 +156,26 @@ export default function OrderTracker() {
             borderRadius: '20px',
             boxShadow: '0 10px 30px rgba(92, 61, 46, 0.05)',
             border: '1.5px solid rgba(184, 138, 59, 0.15)',
-            padding: '3rem 2rem',
+            padding: 'clamp(1.5rem, 5vw, 3rem) clamp(1rem, 4vw, 2rem)',
             textAlign: 'center',
             animation: 'fadeIn 0.5s ease'
           }}>
             <Sparkles size={42} style={{ color: 'var(--royal-gold)', marginBottom: '1rem' }} />
-            <h2 style={{ fontFamily: 'var(--font-headings)', fontSize: '2rem', color: 'var(--deep-charcoal)', marginBottom: '0.8rem' }}>
+            <h2 className="section-title" style={{ marginBottom: '0.8rem' }}>
               Track Your Royal Feast
             </h2>
             <p style={{ fontSize: '0.9rem', color: '#666', maxWidth: '450px', margin: '0 auto 2rem', lineHeight: '1.6' }}>
               Input your unique order tracking code (e.g. PK-18239) found on your digital thermal receipt to see real-time preparation updates.
             </p>
 
-            <form onSubmit={handleSearchSubmit} style={{
-              display: 'flex',
-              gap: '0.5rem',
-              maxWidth: '450px',
-              margin: '0 auto'
-            }}>
+            <form onSubmit={handleSearchSubmit} className="track-search-form">
               <input 
-                type="text"
+                type="search"
                 placeholder="Enter Order ID (e.g., PK-10342)"
                 value={orderIdInput}
                 onChange={(e) => setOrderIdInput(e.target.value)}
+                aria-label="Order ID"
                 style={{
-                  flex: 1,
                   padding: '0.8rem 1.2rem',
                   borderRadius: '10px',
                   border: '1.5px solid var(--sandstone)',
@@ -210,15 +185,9 @@ export default function OrderTracker() {
                   fontFamily: 'monospace'
                 }}
               />
-              <button type="submit" style={{
-                background: 'var(--royal-gold)',
-                color: 'var(--pure-white)',
-                border: 'none',
+              <button type="submit" className="btn-primary" style={{
                 padding: '0 1.5rem',
                 borderRadius: '10px',
-                cursor: 'pointer',
-                fontFamily: 'var(--font-headings)',
-                fontWeight: 700,
                 display: 'flex',
                 alignItems: 'center',
                 gap: '0.4rem'
@@ -444,8 +413,14 @@ export default function OrderTracker() {
                     <span>₹{order.packagingFee}</span>
                   </div>
                 )}
+                {order.deliveryFee > 0 && (
+                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <span>Delivery Fee</span>
+                    <span>₹{order.deliveryFee}</span>
+                  </div>
+                )}
                 <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                  <span>Tax & GST (5%)</span>
+                  <span>Tax & GST ({order.taxRate ?? 5}%)</span>
                   <span>₹{order.tax}</span>
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.95rem', fontWeight: 800, color: 'var(--deep-charcoal)', borderTop: '1px solid var(--heritage-cream)', paddingTop: '0.6rem', marginTop: '0.4rem' }}>
@@ -461,11 +436,10 @@ export default function OrderTracker() {
               )}
             </div>
 
-            <div style={{ textAlign: 'center', marginTop: '2rem', display: 'flex', gap: '1rem', justifyContent: 'center' }}>
+            <div className="track-actions">
               <button 
-                onClick={() => {
-                  window.location.hash = '#/';
-                }}
+                type="button"
+                onClick={() => { window.history.replaceState(null, '', '/'); window.dispatchEvent(new PopStateEvent('popstate')); }}
                 className="btn-primary"
                 style={{
                   padding: '0.6rem 1.2rem',
@@ -475,13 +449,8 @@ export default function OrderTracker() {
                 Return to Palace Home
               </button>
               <button 
-                onClick={() => {
-                  window.location.hash = '#/';
-                  setTimeout(() => {
-                    const el = document.getElementById('menu-section');
-                    if (el) el.scrollIntoView({ behavior: 'smooth' });
-                  }, 300);
-                }}
+                type="button"
+                onClick={() => { window.history.replaceState(null, '', '/menu'); window.dispatchEvent(new PopStateEvent('popstate')); }}
                 className="btn-secondary"
                 style={{
                   padding: '0.6rem 1.2rem',

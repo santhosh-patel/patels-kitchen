@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { X, Trash2, ShieldCheck, ShoppingBag } from 'lucide-react';
-import { getCoupons, calculateDiscount } from '../data/store';
+import { getCoupons, getSettings } from '../data/store';
+import { calculateOrderTotals } from '../lib/pricing';
 
 export default function CartDrawer({
   isOpen,
@@ -14,6 +15,7 @@ export default function CartDrawer({
 }) {
   const [couponInput, setCouponInput] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
+  const [showOffers, setShowOffers] = useState(false);
 
   // Sync coupon code input with activeCoupon state from parent
   useEffect(() => {
@@ -24,15 +26,25 @@ export default function CartDrawer({
     }
   }, [activeCoupon]);
 
+  useEffect(() => {
+    if (!isOpen) return;
+    const onKey = (e) => { if (e.key === 'Escape') onClose(); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [isOpen, onClose]);
+
   if (!isOpen) return null;
 
   const totalItems = cart.reduce((sum, item) => sum + item.quantity, 0);
-  const subtotal = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
-  
-  // Calculate discount if coupon is applied
-  const discount = activeCoupon ? calculateDiscount(activeCoupon, subtotal) : 0;
-  const gst = Math.round((subtotal - discount) * 0.05);
-  const grandTotal = subtotal - discount + gst;
+  const settings = getSettings();
+  const deliveryEstimate = calculateOrderTotals({
+    cart,
+    deliveryMode: 'delivery',
+    packaging: 'none',
+    coupon: activeCoupon,
+    settings
+  });
+  const { subtotal, discount, tax: gst, deliveryFee, grandTotal, taxRate } = deliveryEstimate;
 
   const handleApplyCoupon = () => {
     setErrorMsg('');
@@ -79,7 +91,7 @@ export default function CartDrawer({
   };
 
   return (
-    <div className="cart-drawer-overlay" onClick={onClose}>
+    <div className="cart-drawer-overlay" onClick={onClose} role="dialog" aria-modal="true" aria-label="Shopping cart">
       <div className="cart-drawer" onClick={(e) => e.stopPropagation()}>
         
         <div className="cart-header">
@@ -108,6 +120,7 @@ export default function CartDrawer({
                       <button 
                         className="qty-btn"
                         onClick={() => onUpdateQty(item.id, item.quantity - 1)}
+                        aria-label="Decrease quantity"
                       >
                         -
                       </button>
@@ -115,6 +128,7 @@ export default function CartDrawer({
                       <button 
                         className="qty-btn"
                         onClick={() => onUpdateQty(item.id, item.quantity + 1)}
+                        aria-label="Increase quantity"
                       >
                         +
                       </button>
@@ -159,7 +173,6 @@ export default function CartDrawer({
               <ShieldCheck size={14} style={{ color: 'var(--royal-gold)' }} />
               <span>Royal Patel Hospitality Guaranteed</span>
             </div>
-
             {/* Promo Code Input */}
             <div className="promo-code-container" style={{
               background: '#F9F6EE',
@@ -182,45 +195,64 @@ export default function CartDrawer({
               </label>
               
               {!activeCoupon ? (
-                <div style={{ display: 'flex', gap: '0.5rem' }}>
-                  <input
-                    type="text"
-                    placeholder="Enter code (e.g. WELCOME10)"
-                    value={couponInput}
-                    onChange={(e) => {
-                      setCouponInput(e.target.value);
-                      setErrorMsg('');
-                    }}
-                    style={{
-                      flex: 1,
-                      padding: '0.4rem 0.8rem',
-                      borderRadius: '8px',
-                      border: '1px solid var(--sandstone)',
-                      fontFamily: 'var(--font-body)',
-                      fontSize: '0.85rem',
-                      outline: 'none',
-                      background: 'var(--pure-white)',
-                      textTransform: 'uppercase'
-                    }}
-                  />
-                  <button
-                    onClick={handleApplyCoupon}
-                    style={{
-                      background: 'var(--royal-gold)',
-                      color: 'var(--pure-white)',
-                      border: 'none',
-                      padding: '0.4rem 1rem',
-                      borderRadius: '8px',
-                      fontFamily: 'var(--font-headings)',
-                      fontSize: '0.82rem',
-                      fontWeight: 700,
-                      cursor: 'pointer',
-                      transition: 'all 0.2s'
-                    }}
-                  >
-                    Apply
-                  </button>
-                </div>
+                <>
+                  <div style={{ display: 'flex', gap: '0.5rem' }}>
+                    <input
+                      type="text"
+                      placeholder="Enter code (e.g. WELCOME10)"
+                      value={couponInput}
+                      onChange={(e) => {
+                        setCouponInput(e.target.value);
+                        setErrorMsg('');
+                      }}
+                      style={{
+                        flex: 1,
+                        padding: '0.4rem 0.8rem',
+                        borderRadius: '8px',
+                        border: '1px solid var(--sandstone)',
+                        fontFamily: 'var(--font-body)',
+                        fontSize: '0.85rem',
+                        outline: 'none',
+                        background: 'var(--pure-white)',
+                        textTransform: 'uppercase'
+                      }}
+                    />
+                    <button
+                      onClick={handleApplyCoupon}
+                      style={{
+                        background: 'var(--royal-gold)',
+                        color: 'var(--pure-white)',
+                        border: 'none',
+                        padding: '0.4rem 1rem',
+                        borderRadius: '8px',
+                        fontFamily: 'var(--font-headings)',
+                        fontSize: '0.82rem',
+                        fontWeight: 700,
+                        cursor: 'pointer',
+                        transition: 'all 0.2s'
+                      }}
+                    >
+                      Apply
+                    </button>
+                  </div>
+                  <div style={{ marginTop: '0.4rem', textAlign: 'right' }}>
+                    <button
+                      onClick={() => setShowOffers(!showOffers)}
+                      style={{
+                        background: 'transparent',
+                        border: 'none',
+                        color: 'var(--royal-gold)',
+                        fontSize: '0.72rem',
+                        fontWeight: 700,
+                        cursor: 'pointer',
+                        textDecoration: 'underline',
+                        fontFamily: 'var(--font-headings)'
+                      }}
+                    >
+                      {showOffers ? 'Hide Active Offers' : 'View Active Offers'}
+                    </button>
+                  </div>
+                </>
               ) : (
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'rgba(184, 138, 59, 0.08)', padding: '0.4rem 0.8rem', borderRadius: '8px', border: '1px dashed var(--royal-gold)' }}>
                   <div>
@@ -233,6 +265,51 @@ export default function CartDrawer({
                   >
                     Remove
                   </button>
+                </div>
+              )}
+
+              {showOffers && !activeCoupon && (
+                <div style={{
+                  marginTop: '0.6rem',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '0.4rem',
+                  maxHeight: '120px',
+                  overflowY: 'auto',
+                  background: 'var(--pure-white)',
+                  borderRadius: '8px',
+                  padding: '0.4rem',
+                  border: '1px solid var(--sandstone)'
+                }}>
+                  {getCoupons().filter(c => c.isActive && new Date(c.expiryDate) > new Date()).map(c => (
+                    <div 
+                      key={c.id}
+                      onClick={() => {
+                        setCouponInput(c.code);
+                        setErrorMsg('');
+                        setShowOffers(false);
+                      }}
+                      style={{
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center',
+                        fontSize: '0.72rem',
+                        padding: '0.3rem',
+                        cursor: 'pointer',
+                        borderRadius: '4px',
+                        transition: 'background 0.2s',
+                        borderBottom: '1px solid rgba(184,138,59,0.05)'
+                      }}
+                      onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(184,138,59,0.05)'}
+                      onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+                    >
+                      <div>
+                        <span style={{ fontWeight: 700, color: 'var(--traditional-brown)', fontFamily: 'monospace' }}>{c.code}</span>
+                        <span style={{ color: '#666', marginLeft: '0.4rem' }}>{c.description}</span>
+                      </div>
+                      <span style={{ color: 'var(--royal-gold)', fontWeight: 700 }}>Apply</span>
+                    </div>
+                  ))}
                 </div>
               )}
               
@@ -256,8 +333,13 @@ export default function CartDrawer({
             )}
 
             <div className="totals-row">
-              <span>Taxes & GST (5%)</span>
+              <span>Taxes & GST ({taxRate}%)</span>
               <span>₹{gst}</span>
+            </div>
+
+            <div className="totals-row" style={{ fontSize: '0.8rem', color: '#888' }}>
+              <span>Est. delivery fee (if delivery)</span>
+              <span>{deliveryFee > 0 ? `₹${deliveryFee}` : 'Free'}</span>
             </div>
 
             <div className="totals-row grand-total">
@@ -267,6 +349,7 @@ export default function CartDrawer({
 
             <button 
               onClick={onCheckout}
+              disabled={cart.length === 0}
               className="btn-primary"
               style={{
                 width: '100%',
