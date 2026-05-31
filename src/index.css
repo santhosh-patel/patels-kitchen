@@ -446,7 +446,7 @@ p {
   max-width: calc(100vw - 4rem);
   height: 780px;
   max-height: calc(100vh - 8rem);
-  background: var(--pure-white);
+  background: #33221B; /* Deeper Mahogany Brown from Logo aesthetics */
   border-radius: 20px;
   box-shadow: var(--premium-shadow);
   border: 1px solid var(--royal-gold);
@@ -458,8 +458,8 @@ p {
 }
 
 .ai-panel-header {
-  background: var(--pure-white);
-  border-bottom: 1px solid var(--heritage-cream);
+  background: #251813; /* Elegant ultra-dark base */
+  border-bottom: 1px solid rgba(184, 138, 59, 0.35);
   padding: 1rem 1.4rem;
   display: flex;
   align-items: center;
@@ -473,21 +473,21 @@ p {
 }
 
 .ai-khansama-title {
-  color: var(--deep-charcoal);
+  color: var(--heritage-cream); /* Pristine cream header */
   font-family: var(--font-headings);
   font-size: 1.1rem;
   font-weight: 600;
 }
 
 .ai-khansama-subtitle {
-  color: var(--traditional-brown);
+  color: var(--royal-gold);
   font-size: 0.72rem;
 }
 
 .btn-ai-close {
   background: transparent;
   border: none;
-  color: var(--traditional-brown);
+  color: var(--heritage-cream);
   cursor: pointer;
   transition: var(--transition-minimal);
 }
@@ -503,7 +503,7 @@ p {
   display: flex;
   flex-direction: column;
   gap: 1rem;
-  background: var(--ivory);
+  background: #33221B; /* Smooth matching dark layout */
 }
 
 .chat-bubble {
@@ -516,11 +516,11 @@ p {
 }
 
 .chat-bubble.assistant {
-  background: var(--pure-white);
-  color: var(--deep-charcoal);
+  background: #422D24; /* Distinct sepia-mahogany bubble */
+  color: var(--heritage-cream); /* Elegant high-contrast text */
   align-self: flex-start;
   border-top-left-radius: 2px;
-  border: 1px solid rgba(184, 138, 59, 0.12);
+  border: 1px solid rgba(184, 138, 59, 0.25);
 }
 
 .chat-bubble.user {
@@ -532,10 +532,10 @@ p {
 
 .chat-bubble .rec-card {
   margin-top: 0.6rem;
-  background: var(--ivory);
+  background: #2D1D16; /* Mahogany-colored cards */
   border-radius: 8px;
   padding: 0.5rem;
-  border: 1px solid var(--sandstone);
+  border: 1px solid rgba(184, 138, 59, 0.3);
   display: flex;
   align-items: center;
   gap: 0.5rem;
@@ -556,6 +556,7 @@ p {
   font-family: var(--font-headings);
   font-size: 0.8rem;
   font-weight: 600;
+  color: var(--heritage-cream);
 }
 
 .chat-bubble .rec-card-price {
@@ -580,7 +581,8 @@ p {
 }
 
 .btn-bubble-add:hover {
-  background: var(--deep-charcoal);
+  background: var(--pure-white);
+  color: var(--deep-charcoal);
 }
 
 .ai-typing-indicator {
@@ -603,8 +605,8 @@ p {
 
 .ai-panel-footer {
   padding: 0.8rem 1.2rem;
-  background: var(--pure-white);
-  border-top: 1px solid var(--heritage-cream);
+  background: #251813; /* Clean dark matching base */
+  border-top: 1px solid rgba(184, 138, 59, 0.35);
   display: flex;
   flex-direction: column;
   gap: 0.6rem;
@@ -617,9 +619,9 @@ p {
 }
 
 .prompt-chip {
-  background: var(--heritage-cream);
-  border: 1px solid var(--sandstone);
-  color: var(--deep-charcoal);
+  background: #422D24; /* Solid matching contrast background */
+  border: 1px solid rgba(184, 138, 59, 0.25);
+  color: var(--heritage-cream);
   padding: 0.35rem 0.75rem;
   border-radius: 12px;
   font-size: 0.75rem;
@@ -637,10 +639,10 @@ p {
 .ai-input-wrapper {
   display: flex;
   align-items: center;
-  border: 1px solid var(--sandstone);
+  border: 1px solid rgba(184, 138, 59, 0.35);
   border-radius: 20px;
   padding: 0.3rem 0.4rem 0.3rem 1rem;
-  background: var(--ivory);
+  background: #1E120D; /* Inset very dark brown background */
 }
 
 .ai-input-wrapper:focus-within {
@@ -654,7 +656,7 @@ p {
   outline: none;
   font-family: var(--font-body);
   font-size: 0.88rem;
-  color: var(--deep-charcoal);
+  color: var(--heritage-cream); /* High-contrast ivory cream typing text */
 }
 
 .btn-ai-send {

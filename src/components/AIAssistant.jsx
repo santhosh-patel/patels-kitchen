@@ -11,7 +11,7 @@ function FormattedText({ text }) {
     if (!str) return '';
     const cleanStr = str.replace(/\*\*\*\*/g, '').replace(/\*\*\s*\*\*/g, '');
     const parts = cleanStr.split(/\*\*(.*?)\*\*/g);
-    return parts.map((part, i) => i % 2 === 1 ? <strong key={i} style={{ fontWeight: 700, color: 'var(--traditional-brown)' }}>{part}</strong> : part);
+    return parts.map((part, i) => i % 2 === 1 ? <strong key={i} style={{ fontWeight: 700, color: 'var(--royal-gold)' }}>{part}</strong> : part);
   };
 
   const lines = text.split('\n');
