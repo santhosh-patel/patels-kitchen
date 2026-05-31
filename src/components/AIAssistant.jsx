@@ -12,12 +12,7 @@ export default function AIAssistant({ onAddToPlate, isOpen, setIsOpen, cart }) {
     {
       id: 1,
       sender: 'assistant',
-      text: "Pranam! I am Chef AI, your personal culinary butler at Patel's Kitchen.",
-    },
-    {
-      id: 2,
-      sender: 'assistant',
-      text: "I can recommend dishes matching your diet or health goals, build complete meals under your budget, or add items directly to your cart. How may I serve you?",
+      text: "Pranam! I am Chef AI. How may I assist you with your feast today?",
     }
   ]);
   const [inputText, setInputText] = useState('');
