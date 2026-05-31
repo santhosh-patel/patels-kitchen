@@ -500,8 +500,8 @@ p {
 }
 
 .ai-panel-header {
-  background: var(--pure-white);
-  border-bottom: 1px solid var(--heritage-cream);
+  background: var(--heritage-cream);
+  border-bottom: 1px solid var(--sandstone);
   padding: 1rem 1.4rem;
   display: flex;
   align-items: center;
@@ -566,8 +566,9 @@ p {
 }
 
 .chat-bubble.user {
-  background: var(--royal-gold);
-  color: var(--pure-white);
+  background: var(--heritage-cream);
+  color: var(--deep-charcoal);
+  border: 1px solid var(--sandstone);
   align-self: flex-end;
   border-top-right-radius: 2px;
 }
@@ -645,12 +646,12 @@ p {
 .ai-typing-dot:nth-child(3) { animation-delay: 0.4s; }
 
 .ai-panel-footer {
-  padding: 0.8rem 1.2rem;
+  padding: 0.75rem 1.2rem 1rem;
   background: var(--pure-white);
-  border-top: 1px solid var(--heritage-cream);
+  border-top: 1px solid rgba(184, 138, 59, 0.08);
   display: flex;
   flex-direction: column;
-  gap: 0.6rem;
+  gap: 0.55rem;
 }
 
 .ai-prompt-chips {
@@ -680,14 +681,15 @@ p {
 .ai-input-wrapper {
   display: flex;
   align-items: center;
-  border: 1px solid var(--sandstone);
-  border-radius: 20px;
-  padding: 0.3rem 0.4rem 0.3rem 1rem;
-  background: var(--ivory);
+  gap: 0.5rem;
+  border: none;
+  border-radius: 0;
+  padding: 0.2rem 0;
+  background: transparent;
 }
 
 .ai-input-wrapper:focus-within {
-  border-color: var(--royal-gold);
+  outline: none;
 }
 
 .ai-input {
@@ -696,14 +698,38 @@ p {
   border: none;
   outline: none;
   font-family: var(--font-body);
-  font-size: 0.88rem;
+  font-size: 0.875rem;
   color: var(--deep-charcoal);
+  padding: 0.4rem 0;
+  min-width: 0;
+}
+
+.ai-input:focus,
+.ai-input:focus-visible {
+  outline: none;
+  box-shadow: none;
+}
+
+.ai-input::placeholder {
+  color: #b5a48e;
+  font-size: 0.82rem;
+}
+
+.ai-char-count {
+  flex-shrink: 0;
+  font-size: 0.68rem;
+  color: #b5a48e;
+  font-weight: 500;
+}
+
+.ai-char-count.is-near-limit {
+  color: #c62828;
 }
 
 .btn-ai-send {
-  background: var(--royal-gold);
-  color: var(--pure-white);
-  border: none;
+  background: transparent;
+  color: var(--royal-gold);
+  border: 1px solid rgba(184, 138, 59, 0.25);
   width: 32px;
   height: 32px;
   border-radius: 50%;
@@ -711,11 +737,19 @@ p {
   align-items: center;
   justify-content: center;
   cursor: pointer;
+  flex-shrink: 0;
   transition: var(--transition-fast);
 }
 
-.btn-ai-send:hover {
-  background: var(--royal-gold-hover);
+.btn-ai-send:hover:not(:disabled) {
+  background: var(--royal-gold);
+  color: var(--pure-white);
+  border-color: var(--royal-gold);
+}
+
+.btn-ai-send:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
 }
 
 /* 8. Shopping Cart Drawer */
@@ -2929,8 +2963,7 @@ p {
   }
 
   .ai-input-wrapper {
-    flex-wrap: wrap;
-    padding: 0.5rem 0.6rem 0.5rem 0.9rem;
+    padding: 0.15rem 0;
   }
 
   .cart-drawer {

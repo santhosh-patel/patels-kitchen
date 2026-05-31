@@ -1,8 +1,13 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { MessageSquare, X, Send, Plus, Award, Check, Heart, Flame, Star } from 'lucide-react';
 import logoImg from '../assets/logo.jpg';
 import { useDishes } from '../context/StoreContext';
 import { useFocusTrap } from '../hooks/useFocusTrap';
+import {
+  DEFAULT_PROFILE,
+  parseProfileUpdates,
+  generatePromptChips
+} from '../lib/chefAiPrompts';
 
 function FormattedText({ text }) {
   if (!text) return null;
@@ -180,14 +185,13 @@ export default function AIAssistant({ onAddToPlate, isOpen, setIsOpen }) {
   const [dailyMessageCount, setDailyMessageCount] = useState(0);
   
   // Customer Profile Engine State (Parsed in background for smart scoring)
-  const [profile, setProfile] = useState({
-    name: '',
-    diet_type: 'all', // vegetarian, non_vegetarian, vegan
-    spice_preference: 'medium', // mild, medium, spicy, extra_spicy
-    health_goals: [], // weight_loss, muscle_gain, high_protein, low_oil
-    allergies: [], // nuts, dairy, eggs, seafood, gluten
-    budget_range: 1000,
-    group_size: 1
+  const [profile, setProfile] = useState(() => {
+    try {
+      const saved = sessionStorage.getItem('pk_chef_ai_profile');
+      return saved ? { ...DEFAULT_PROFILE, ...JSON.parse(saved) } : { ...DEFAULT_PROFILE };
+    } catch {
+      return { ...DEFAULT_PROFILE };
+    }
   });
 
   const chatEndRef = useRef(null);
@@ -218,22 +222,29 @@ export default function AIAssistant({ onAddToPlate, isOpen, setIsOpen }) {
     }
   }, []);
 
-  const promptChips = [
-    { label: 'Veg feast under ₹500', query: 'vegetarian meal under 500 rupees for 2 people' },
-    { label: 'Mild biryani for 2', query: 'mild biryani recommendation for 2 people' },
-    { label: 'High-protein breakfast', query: 'high protein South Indian breakfast options' }
-  ];
+  useEffect(() => {
+    try {
+      sessionStorage.setItem('pk_chef_ai_profile', JSON.stringify(profile));
+    } catch (e) {
+      console.error('Error saving Chef AI profile', e);
+    }
+  }, [profile]);
+
+  const promptChips = useMemo(
+    () => generatePromptChips(profile, messages),
+    [profile, messages]
+  );
 
   // Vector-like Scoring & Recommendation Engine
-  const getRecommendationScores = () => {
+  const getRecommendationScores = (activeProfile = profile) => {
     return menuData.map(item => {
       let score = 50; // base score
 
       // 1. Dietary Preference Filters (Hard constraints)
-      if (profile.diet_type === 'vegetarian' && !item.isVeg) {
+      if (activeProfile.diet_type === 'vegetarian' && !item.isVeg) {
         score = 0;
       }
-      if (profile.diet_type === 'vegan') {
+      if (activeProfile.diet_type === 'vegan') {
         if (!item.isVeg || item.name.toLowerCase().includes('paneer') || 
             item.description.toLowerCase().includes('butter') || 
             item.description.toLowerCase().includes('ghee') ||
@@ -246,7 +257,7 @@ export default function AIAssistant({ onAddToPlate, isOpen, setIsOpen }) {
       // 2. Allergy Exclusions (Hard constraints)
       if (score > 0) {
         const desc = item.description.toLowerCase() + " " + item.name.toLowerCase();
-        profile.allergies.forEach(allergy => {
+        activeProfile.allergies.forEach(allergy => {
           if (allergy === 'dairy' && (
             desc.includes('butter') || desc.includes('ghee') || desc.includes('paneer') || 
             desc.includes('milk') || desc.includes('cream') || desc.includes('malai') || desc.includes('lassi')
@@ -276,7 +287,7 @@ export default function AIAssistant({ onAddToPlate, isOpen, setIsOpen }) {
 
       // Apply scoring weights if item passed filters
       if (score > 0) {
-        profile.health_goals.forEach(goal => {
+        activeProfile.health_goals.forEach(goal => {
           if (goal === 'muscle_gain' || goal === 'high_protein') {
             if (item.category === 'biryanis' || item.category === 'starters') {
               if (item.name.toLowerCase().includes('chicken') || item.name.toLowerCase().includes('mutton') || item.name.toLowerCase().includes('paneer')) {
@@ -291,19 +302,19 @@ export default function AIAssistant({ onAddToPlate, isOpen, setIsOpen }) {
           }
         });
 
-        if (profile.spice_preference === 'mild') {
+        if (activeProfile.spice_preference === 'mild') {
           if (item.spiceLevel >= 2) score -= 20;
           if (item.spiceLevel <= 1) score += 15;
-        } else if (profile.spice_preference === 'spicy' || profile.spice_preference === 'extra_spicy') {
+        } else if (activeProfile.spice_preference === 'spicy' || activeProfile.spice_preference === 'extra_spicy') {
           if (item.spiceLevel === 3) score += 25;
           if (item.spiceLevel === 2) score += 15;
         }
 
-        if (item.price > profile.budget_range) {
+        if (item.price > activeProfile.budget_range) {
           score -= 30;
         }
 
-        if (profile.group_size >= 3) {
+        if (activeProfile.group_size >= 3) {
           if (item.id === 'special-family-chicken-biryani' || item.id === 'patel-special-mega-thali') {
             score += 30;
           }
@@ -316,66 +327,12 @@ export default function AIAssistant({ onAddToPlate, isOpen, setIsOpen }) {
     .sort((a, b) => b.score - a.score);
   };
 
-  // Background Profile Parser
   const updateProfileFromText = (text) => {
-    const lower = text.toLowerCase();
-    let updated = { ...profile };
-    let changed = false;
-
-    if (lower.includes('vegetarian') || lower.includes('pure veg') || lower.includes('no meat')) {
-      updated.diet_type = 'vegetarian';
-      changed = true;
-    } else if (lower.includes('vegan') || lower.includes('no dairy')) {
-      updated.diet_type = 'vegan';
-      if (!updated.allergies.includes('dairy')) updated.allergies.push('dairy');
-      changed = true;
-    } else if (lower.includes('chicken') || lower.includes('mutton') || lower.includes('non veg')) {
-      updated.diet_type = 'non_vegetarian';
-      changed = true;
-    }
-
-    if (lower.includes('extra spicy') || lower.includes('extremely hot')) {
-      updated.spice_preference = 'extra_spicy';
-      changed = true;
-    } else if (lower.includes('spicy') || lower.includes('hot')) {
-      updated.spice_preference = 'spicy';
-      changed = true;
-    } else if (lower.includes('mild') || lower.includes('no spice')) {
-      updated.spice_preference = 'mild';
-      changed = true;
-    }
-
-    if (lower.includes('workout') || lower.includes('gym') || lower.includes('protein') || lower.includes('muscle')) {
-      if (!updated.health_goals.includes('high_protein')) {
-        updated.health_goals.push('high_protein');
-        updated.health_goals.push('muscle_gain');
-      }
-      changed = true;
-    }
-    if (lower.includes('weight loss') || lower.includes('diet') || lower.includes('healthy') || lower.includes('low oil')) {
-      if (!updated.health_goals.includes('weight_loss')) {
-        updated.health_goals.push('weight_loss');
-        updated.health_goals.push('low_oil');
-      }
-      changed = true;
-    }
-
-    if (lower.includes('allergic to nuts') || lower.includes('nut allergy')) {
-      if (!updated.allergies.includes('nuts')) updated.allergies.push('nuts');
-      changed = true;
-    }
-    if (lower.includes('allergic to dairy') || lower.includes('lactose')) {
-      if (!updated.allergies.includes('dairy')) updated.allergies.push('dairy');
-      changed = true;
-    }
-    if (lower.includes('gluten allergy') || lower.includes('celiac')) {
-      if (!updated.allergies.includes('gluten')) updated.allergies.push('gluten');
-      changed = true;
-    }
-
+    const { profile: updated, changed } = parseProfileUpdates(text, profile);
     if (changed) {
       setProfile(updated);
     }
+    return updated;
   };
 
   const handleSend = async (text) => {
@@ -413,24 +370,24 @@ export default function AIAssistant({ onAddToPlate, isOpen, setIsOpen }) {
     setDailyMessageCount(nextCount);
 
     // 2. Parse Profile in background
-    updateProfileFromText(cleanText);
+    const liveProfile = updateProfileFromText(cleanText);
 
     // 3. Connect to serverless proxy or local simulation
     try {
-      await callChefAI(cleanText);
+      await callChefAI(cleanText, false, liveProfile);
     } catch (err) {
       console.error('Chef AI proxy failed, using local fallback.', err);
       try {
-        await callChefAI(cleanText, true);
+        await callChefAI(cleanText, true, liveProfile);
       } catch (fallbackErr) {
-        simulateConciergeLogic(cleanText);
+        simulateConciergeLogic(cleanText, liveProfile);
       }
     }
   };
 
-  const callChefAI = async (userText, useFallback = false) => {
+  const callChefAI = async (userText, useFallback = false, liveProfile = profile) => {
     const selectedModel = useFallback ? "llama-3.3-70b-versatile" : "llama-3.1-8b-instant";
-    const recommendedList = getRecommendationScores();
+    const recommendedList = getRecommendationScores(liveProfile);
     const topSuggestions = recommendedList.slice(0, 5).map(r => `${r.item.name} (₹${r.item.price}, Category: ${r.item.category}, Spice: ${r.item.spiceLevel}/3, Score: ${r.score}%)`);
 
     const messagesPayload = [
@@ -439,9 +396,11 @@ export default function AIAssistant({ onAddToPlate, isOpen, setIsOpen }) {
         content: `You are Chef AI (Personal Food Butler) at Patel's Kitchen.
         Your tone is elegant, helpful, and highly hospitable.
         Current customer profile parsed in background:
-        - Diet Type: ${profile.diet_type}
-        - Spice: ${profile.spice_preference}
-        - Allergies: ${profile.allergies.join(", ") || "None"}
+        - Diet Type: ${liveProfile.diet_type}
+        - Spice: ${liveProfile.spice_preference}
+        - Allergies: ${liveProfile.allergies.join(", ") || "None"}
+        - Budget: ₹${liveProfile.budget_range}
+        - Group size: ${liveProfile.group_size}
         
         Symmetrical Menu scoring matches for this guest:
         ${topSuggestions.join("\n")}
@@ -506,10 +465,10 @@ export default function AIAssistant({ onAddToPlate, isOpen, setIsOpen }) {
   };
 
   // High-Fidelity Local Backup Simulator
-  const simulateConciergeLogic = (text) => {
+  const simulateConciergeLogic = (text, liveProfile = profile) => {
     setIsTyping(false);
     const query = text.toLowerCase();
-    const recommendedList = getRecommendationScores();
+    const recommendedList = getRecommendationScores(liveProfile);
     const topMatch = recommendedList[0]?.item;
     
     let reply = '';
@@ -701,9 +660,9 @@ export default function AIAssistant({ onAddToPlate, isOpen, setIsOpen }) {
             
             {/* Prompt Chips */}
             <div className="ai-prompt-chips">
-              {promptChips.map((chip, idx) => (
+              {promptChips.map((chip) => (
                 <button
-                  key={idx}
+                  key={chip.label}
                   className="prompt-chip"
                   onClick={() => handleSend(chip.query)}
                 >
@@ -726,23 +685,13 @@ export default function AIAssistant({ onAddToPlate, isOpen, setIsOpen }) {
                 onChange={(e) => setInputText(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && handleSend(inputText)}
               />
-              <span style={{ 
-                fontSize: '0.72rem', 
-                color: inputText.length >= 235 ? '#C62828' : 'var(--traditional-brown)', 
-                marginRight: '0.6rem', 
-                fontFamily: 'monospace', 
-                fontWeight: 700 
-              }}>
+              <span className={`ai-char-count${inputText.length >= 235 ? ' is-near-limit' : ''}`}>
                 {inputText.length}/250
               </span>
               <button 
                 className="btn-ai-send"
                 onClick={() => handleSend(inputText)}
                 disabled={dailyMessageCount >= 30}
-                style={{
-                  cursor: dailyMessageCount >= 30 ? 'not-allowed' : 'pointer',
-                  background: dailyMessageCount >= 30 ? '#cccccc' : 'var(--royal-gold)'
-                }}
                 aria-label="Send message"
               >
                 <Send size={16} />
