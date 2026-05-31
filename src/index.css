@@ -526,16 +526,35 @@ p {
   font-size: 0.72rem;
 }
 
-.btn-ai-close {
+.ai-panel-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.btn-ai-close,
+.btn-ai-delete {
   background: transparent;
   border: none;
   color: var(--traditional-brown);
   cursor: pointer;
   transition: var(--transition-minimal);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: var(--touch-target-min);
+  min-height: var(--touch-target-min);
+  border-radius: 8px;
+}
+
+.btn-ai-delete:hover {
+  color: #c62828;
+  background: rgba(198, 40, 40, 0.06);
 }
 
 .btn-ai-close:hover {
   color: var(--royal-gold);
+  background: rgba(184, 138, 59, 0.08);
 }
 
 .ai-chat-history {
@@ -563,6 +582,7 @@ p {
   align-self: flex-start;
   border-top-left-radius: 2px;
   border: 1px solid rgba(184, 138, 59, 0.12);
+  max-width: 95%;
 }
 
 .chat-bubble.user {
@@ -606,6 +626,124 @@ p {
   font-size: 0.78rem;
   color: var(--royal-gold);
   font-weight: 700;
+}
+
+.ai-menu-table-wrap {
+  margin-top: 0.75rem;
+  width: 100%;
+}
+
+.ai-menu-table-heading {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--traditional-brown);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin: 0 0 0.5rem;
+}
+
+.ai-menu-table-scroll {
+  overflow-x: auto;
+  border-radius: 10px;
+  border: 1px solid var(--sandstone);
+}
+
+.ai-menu-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.8rem;
+  background: var(--pure-white);
+}
+
+.ai-menu-table thead tr {
+  background: var(--heritage-cream);
+  border-bottom: 1px solid var(--sandstone);
+}
+
+.ai-menu-table th {
+  padding: 0.5rem 0.65rem;
+  font-weight: 700;
+  color: var(--traditional-brown);
+  text-align: left;
+  white-space: nowrap;
+}
+
+.ai-menu-table td {
+  padding: 0.55rem 0.65rem;
+  color: var(--deep-charcoal);
+  border-bottom: 1px solid rgba(184, 138, 59, 0.1);
+  vertical-align: middle;
+}
+
+.ai-menu-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.ai-menu-table-col-image {
+  width: 52px;
+}
+
+.ai-menu-table-col-price {
+  width: 64px;
+  white-space: nowrap;
+}
+
+.ai-menu-table-col-action {
+  width: 72px;
+  text-align: right;
+}
+
+.ai-menu-table-img {
+  width: 44px;
+  height: 44px;
+  border-radius: 8px;
+  object-fit: cover;
+  display: block;
+}
+
+.ai-menu-table-img-placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-headings);
+  font-weight: 700;
+  color: var(--traditional-brown);
+  font-size: 1rem;
+}
+
+.ai-menu-table-name {
+  font-weight: 600;
+  line-height: 1.35;
+  min-width: 120px;
+}
+
+.ai-menu-table-price {
+  font-weight: 700;
+  color: var(--royal-gold);
+  white-space: nowrap;
+}
+
+.btn-ai-table-add {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
+  padding: 0.3rem 0.55rem;
+  border-radius: 999px;
+  border: 1px solid rgba(184, 138, 59, 0.25);
+  background: transparent;
+  color: var(--royal-gold);
+  font-size: 0.72rem;
+  font-weight: 700;
+  font-family: var(--font-body);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: var(--transition-fast);
+}
+
+.btn-ai-table-add:hover {
+  background: var(--royal-gold);
+  color: var(--pure-white);
+  border-color: var(--royal-gold);
 }
 
 .btn-bubble-add {
@@ -2830,6 +2968,7 @@ p {
 .prompt-chip,
 .btn-cart-close,
 .btn-ai-close,
+.btn-ai-delete,
 .btn-ai-send {
   -webkit-tap-highlight-color: transparent;
 }

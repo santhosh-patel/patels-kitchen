@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { MessageSquare, X, Send, Plus, Award, Check, Heart, Flame, Star } from 'lucide-react';
+import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
+import { MessageSquare, X, Send, Plus, Award, Check, Heart, Flame, Star, Trash2 } from 'lucide-react';
 import logoImg from '../assets/logo.jpg';
 import { useDishes } from '../context/StoreContext';
 import { useFocusTrap } from '../hooks/useFocusTrap';
@@ -8,6 +8,65 @@ import {
   parseProfileUpdates,
   generatePromptChips
 } from '../lib/chefAiPrompts';
+import { buildMenuListResponse } from '../lib/chefAiMenuQuery';
+import { getDishImage, getDishGradient } from '../lib/dishImage';
+
+function MenuItemTable({ title, items, onAdd }) {
+  if (!items?.length) return null;
+
+  return (
+    <div className="ai-menu-table-wrap">
+      {title && <p className="ai-menu-table-heading">{title}</p>}
+      <div className="ai-menu-table-scroll">
+        <table className="ai-menu-table">
+          <thead>
+            <tr>
+              <th scope="col" className="ai-menu-table-col-image" />
+              <th scope="col">Item</th>
+              <th scope="col" className="ai-menu-table-col-price">Price</th>
+              <th scope="col" className="ai-menu-table-col-action" />
+            </tr>
+          </thead>
+          <tbody>
+            {items.map((item) => {
+              const image = getDishImage(item) || item.image;
+              return (
+                <tr key={item.id}>
+                  <td className="ai-menu-table-col-image">
+                    {image ? (
+                      <img src={image} alt="" className="ai-menu-table-img" loading="lazy" />
+                    ) : (
+                      <div
+                        className="ai-menu-table-img ai-menu-table-img-placeholder"
+                        style={{ background: getDishGradient(item.category) }}
+                        aria-hidden="true"
+                      >
+                        {item.name.charAt(0)}
+                      </div>
+                    )}
+                  </td>
+                  <td className="ai-menu-table-name">{item.name}</td>
+                  <td className="ai-menu-table-price">₹{item.price}</td>
+                  <td className="ai-menu-table-col-action">
+                    <button
+                      type="button"
+                      className="btn-ai-table-add"
+                      onClick={() => onAdd(item)}
+                      aria-label={`Add ${item.name} to plate`}
+                    >
+                      <Plus size={14} />
+                      <span>Add</span>
+                    </button>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
 
 function FormattedText({ text }) {
   if (!text) return null;
@@ -154,6 +213,12 @@ function FormattedText({ text }) {
   return <div>{elements}</div>;
 }
 
+const WELCOME_MESSAGE = {
+  id: 1,
+  sender: 'assistant',
+  text: "Pranam! I am Chef AI. How may I assist you with your feast today?"
+};
+
 export default function AIAssistant({ onAddToPlate, isOpen, setIsOpen }) {
   const dishes = useDishes();
   const menuData = dishes.filter(d => d.available !== false);
@@ -163,21 +228,9 @@ export default function AIAssistant({ onAddToPlate, isOpen, setIsOpen }) {
   const [messages, setMessages] = useState(() => {
     try {
       const saved = sessionStorage.getItem('pk_chef_ai_history');
-      return saved ? JSON.parse(saved) : [
-        {
-          id: 1,
-          sender: 'assistant',
-          text: "Pranam! I am Chef AI. How may I assist you with your feast today?",
-        }
-      ];
+      return saved ? JSON.parse(saved) : [WELCOME_MESSAGE];
     } catch (e) {
-      return [
-        {
-          id: 1,
-          sender: 'assistant',
-          text: "Pranam! I am Chef AI. How may I assist you with your feast today?",
-        }
-      ];
+      return [WELCOME_MESSAGE];
     }
   });
   const [inputText, setInputText] = useState('');
@@ -195,7 +248,8 @@ export default function AIAssistant({ onAddToPlate, isOpen, setIsOpen }) {
   });
 
   const chatEndRef = useRef(null);
-  const panelRef = useFocusTrap(isOpen, () => setIsOpen(false));
+  const closePanel = useCallback(() => setIsOpen(false), [setIsOpen]);
+  const panelRef = useFocusTrap(isOpen, closePanel);
 
   // Auto scroll to chat end & persist messages to session state
   useEffect(() => {
@@ -437,16 +491,20 @@ export default function AIAssistant({ onAddToPlate, isOpen, setIsOpen }) {
     const data = await response.json();
     const replyText = data.content;
 
+    const listResponse = buildMenuListResponse(userText, menuData, liveProfile);
+
     let suggestedItem = null;
     let suggestedItems = [];
     const lower = userText.toLowerCase();
 
-    if (lower.includes('biryani') || lower.includes('mutton')) {
-      suggestedItem = findDish('hyd-chicken-dum-biryani');
-    } else if (lower.includes('dosa') || lower.includes('breakfast')) {
-      suggestedItem = findDish('ghee-roast-dosa');
-    } else if (lower.includes('sweet') || lower.includes('gulab') || lower.includes('dessert')) {
-      suggestedItems = menuData.filter(item => item.id === 'gulab-jamun' || item.id === 'filter-coffee');
+    if (!listResponse?.menuTable) {
+      if (lower.includes('biryani') || lower.includes('mutton')) {
+        suggestedItem = findDish('hyd-chicken-dum-biryani');
+      } else if (lower.includes('dosa') || lower.includes('breakfast')) {
+        suggestedItem = findDish('ghee-roast-dosa');
+      } else if (lower.includes('sweet') || lower.includes('gulab') || lower.includes('dessert')) {
+        suggestedItems = menuData.filter(item => item.id === 'gulab-jamun' || item.id === 'filter-coffee');
+      }
     }
 
     setIsTyping(false);
@@ -455,9 +513,10 @@ export default function AIAssistant({ onAddToPlate, isOpen, setIsOpen }) {
       {
         id: Date.now(),
         sender: 'assistant',
-        text: replyText,
-        suggestedItem,
-        suggestedItems: suggestedItems.length > 0 ? suggestedItems : null
+        text: listResponse?.text || replyText,
+        menuTable: listResponse?.menuTable || null,
+        suggestedItem: listResponse?.menuTable ? null : suggestedItem,
+        suggestedItems: listResponse?.menuTable ? null : (suggestedItems.length > 0 ? suggestedItems : null)
       }
     ]);
 
@@ -468,6 +527,22 @@ export default function AIAssistant({ onAddToPlate, isOpen, setIsOpen }) {
   const simulateConciergeLogic = (text, liveProfile = profile) => {
     setIsTyping(false);
     const query = text.toLowerCase();
+    const listResponse = buildMenuListResponse(text, menuData, liveProfile);
+
+    if (listResponse) {
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: Date.now(),
+          sender: 'assistant',
+          text: listResponse.text,
+          menuTable: listResponse.menuTable
+        }
+      ]);
+      triggerChimeSound();
+      return;
+    }
+
     const recommendedList = getRecommendationScores(liveProfile);
     const topMatch = recommendedList[0]?.item;
     
@@ -550,6 +625,18 @@ export default function AIAssistant({ onAddToPlate, isOpen, setIsOpen }) {
     ]);
   };
 
+  const handleClearChat = useCallback(() => {
+    setMessages([{ ...WELCOME_MESSAGE, id: Date.now() }]);
+    setProfile({ ...DEFAULT_PROFILE });
+    setInputText('');
+    try {
+      sessionStorage.removeItem('pk_chef_ai_history');
+      sessionStorage.removeItem('pk_chef_ai_profile');
+    } catch (e) {
+      console.error('Error clearing Chef AI session', e);
+    }
+  }, []);
+
   return (
     <div className="ai-assistant-container">
       
@@ -580,10 +667,27 @@ export default function AIAssistant({ onAddToPlate, isOpen, setIsOpen }) {
                 <h4 className="ai-khansama-title">Chef AI</h4>
               </div>
             </div>
-            
-            <button className="btn-ai-close" onClick={() => setIsOpen(false)} aria-label="Close Chef AI">
-              <X size={20} />
-            </button>
+
+            <div className="ai-panel-header-actions">
+              <button
+                type="button"
+                className="btn-ai-delete"
+                onClick={handleClearChat}
+                aria-label="Clear chat"
+                title="Clear chat"
+              >
+                <Trash2 size={18} />
+              </button>
+              <button
+                type="button"
+                className="btn-ai-close"
+                onClick={() => setIsOpen(false)}
+                aria-label="Close Chef AI"
+                title="Close"
+              >
+                <X size={20} />
+              </button>
+            </div>
           </div>
 
           {/* Chat History scroll box (Single Clean screen, NO tabs selector) */}
@@ -592,8 +696,16 @@ export default function AIAssistant({ onAddToPlate, isOpen, setIsOpen }) {
               <div key={msg.id} className={`chat-bubble ${msg.sender}`}>
                 <FormattedText text={msg.text} />
 
+                {msg.menuTable?.items?.length > 0 && (
+                  <MenuItemTable
+                    title={msg.menuTable.title}
+                    items={msg.menuTable.items}
+                    onAdd={handleAddSuggested}
+                  />
+                )}
+
                 {/* Single Item Concierge Card */}
-                {msg.suggestedItem && (
+                {msg.suggestedItem && !msg.menuTable && (
                   <div className="rec-card">
                     <img src={msg.suggestedItem.image} alt={msg.suggestedItem.name} />
                     <div className="rec-card-details">
@@ -683,7 +795,12 @@ export default function AIAssistant({ onAddToPlate, isOpen, setIsOpen }) {
                   : "Ask Chef AI (e.g. Biryani, spicy, low oil, etc.)..."}
                 value={inputText}
                 onChange={(e) => setInputText(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && handleSend(inputText)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && !e.nativeEvent.isComposing) {
+                    e.preventDefault();
+                    handleSend(inputText);
+                  }
+                }}
               />
               <span className={`ai-char-count${inputText.length >= 235 ? ' is-near-limit' : ''}`}>
                 {inputText.length}/250
