@@ -741,22 +741,6 @@ export default function AIAssistant({ onAddToPlate, isOpen, setIsOpen, cart }) {
               </button>
             </div>
 
-            {/* Connection statement */}
-            <div style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: '0.3rem',
-              fontSize: '0.65rem',
-              color: '#888888'
-            }}>
-              <Award size={10} style={{ color: 'var(--royal-gold)' }} />
-              <span>
-                {apiKey 
-                  ? `Connected with Groq Llama 3.1 8B • Daily count: ${dailyMessageCount}/30` 
-                  : `Operating with local High-Fidelity Chef Mind • Daily count: ${dailyMessageCount}/30`}
-              </span>
-            </div>
 
           </div>
 
