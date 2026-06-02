@@ -1,3 +1,5 @@
+import QRCode from 'qrcode';
+
 /**
  * Build a NPCI-compliant UPI payment URI for QR codes.
  * All values are URL-encoded so names like "Patel's Kitchen" scan correctly.
@@ -35,7 +37,6 @@ export function buildUpiPaymentUri({
 export async function generateUpiQrDataUrl(upiUri, size = 220) {
   if (!upiUri) return null;
 
-  const { default: QRCode } = await import('qrcode');
   return QRCode.toDataURL(upiUri, {
     width: size,
     margin: 2,
