@@ -27,7 +27,10 @@ export function calculateOrderTotals({
   const packagingFee = getPackagingFee(packaging, deliveryMode);
   const deliveryFee = getDeliveryFee(discountedSubtotal, deliveryMode, settings);
   const taxRate = settings?.taxRate ?? 5;
-  const tax = Math.round(discountedSubtotal * (taxRate / 100));
+  
+  const foodGst = Math.round(discountedSubtotal * (taxRate / 100));
+  const packagingGst = Math.round(packagingFee * 0.18);
+  const tax = foodGst + packagingGst;
   const grandTotal = discountedSubtotal + packagingFee + deliveryFee + tax;
 
   return {
@@ -36,6 +39,8 @@ export function calculateOrderTotals({
     discountedSubtotal,
     packagingFee,
     deliveryFee,
+    foodGst,
+    packagingGst,
     tax,
     taxRate,
     grandTotal

@@ -1,5 +1,5 @@
 /* eslint-env node */
-const rateLimit = new Map();
+const rateLimitLocal = new Map();
 const RATE_LIMIT = 30;
 const RATE_WINDOW_MS = 60 * 60 * 1000;
 
@@ -9,15 +9,50 @@ function getClientIp(req) {
     || 'unknown';
 }
 
-function isRateLimited(ip) {
+async function isRateLimitedUpstash(ip) {
+  const upstashUrl = process.env.UPSTASH_REDIS_REST_URL;
+  const upstashToken = process.env.UPSTASH_REDIS_REST_TOKEN;
+  if (!upstashUrl || !upstashToken) return null;
+
+  const windowIndex = Math.floor(Date.now() / RATE_WINDOW_MS);
+  const key = `pk_ratelimit:${ip}:${windowIndex}`;
+
+  try {
+    const res = await fetch(`${upstashUrl}/pipeline`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${upstashToken}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify([
+        ['INCR', key],
+        ['EXPIRE', key, Math.floor(RATE_WINDOW_MS / 1000)]
+      ])
+    });
+
+    if (!res.ok) {
+      console.warn('Upstash Redis pipeline failed, using local rate limiter fallback.');
+      return null;
+    }
+
+    const data = await res.json();
+    const count = data[0]?.result ?? 0;
+    return count > RATE_LIMIT;
+  } catch (err) {
+    console.error('Error in Upstash Redis rate limiter:', err);
+    return null;
+  }
+}
+
+function isRateLimitedLocal(ip) {
   const now = Date.now();
-  const entry = rateLimit.get(ip) || { count: 0, resetAt: now + RATE_WINDOW_MS };
+  const entry = rateLimitLocal.get(ip) || { count: 0, resetAt: now + RATE_WINDOW_MS };
   if (now > entry.resetAt) {
     entry.count = 0;
     entry.resetAt = now + RATE_WINDOW_MS;
   }
   entry.count += 1;
-  rateLimit.set(ip, entry);
+  rateLimitLocal.set(ip, entry);
   return entry.count > RATE_LIMIT;
 }
 
@@ -32,7 +67,12 @@ export default async function handler(req, res) {
   }
 
   const ip = getClientIp(req);
-  if (isRateLimited(ip)) {
+  let rateLimited = await isRateLimitedUpstash(ip);
+  if (rateLimited === null) {
+    rateLimited = isRateLimitedLocal(ip);
+  }
+
+  if (rateLimited) {
     return res.status(429).json({ error: 'Rate limit exceeded. Try again later.' });
   }
 

@@ -55,7 +55,7 @@ export default function CheckoutModal({
     coupon: activeCoupon,
     settings
   });
-  const { subtotal, discount, packagingFee, deliveryFee, tax: gst, grandTotal, taxRate } = totals;
+  const { subtotal, discount, packagingFee, deliveryFee, foodGst, packagingGst, tax: gst, grandTotal, taxRate } = totals;
 
   useEffect(() => {
     if (step !== paymentStep || paymentPhase !== 'idle') return;
@@ -129,6 +129,8 @@ export default function CheckoutModal({
       packagingFee,
       packagingType: checkoutPackaging,
       subtotal,
+      foodGst,
+      packagingGst,
       tax: gst,
       deliveryFee,
       total: grandTotal,
@@ -161,11 +163,13 @@ export default function CheckoutModal({
       deliveryFee,
       discount,
       couponCode: activeCoupon ? activeCoupon.code : null,
+      foodGst,
+      packagingGst,
       gst,
       taxRate,
       grandTotal
     });
-  }, [onOrderComplete, formData, deliveryMode, isDineIn, checkoutPackaging, packagingFee, deliveryFee, gst, grandTotal, cart, activeCoupon, subtotal, discount, taxRate]);
+  }, [onOrderComplete, formData, deliveryMode, isDineIn, checkoutPackaging, packagingFee, deliveryFee, foodGst, packagingGst, gst, grandTotal, cart, activeCoupon, subtotal, discount, taxRate]);
 
   useEffect(() => {
     if (paymentPhase !== 'success') return;
@@ -366,9 +370,15 @@ export default function CheckoutModal({
                   </div>
                 )}
                 <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', marginBottom: '0.3rem' }}>
-                  <span>Taxes & GST ({taxRate}%)</span>
-                  <span>₹{gst}</span>
+                  <span>Food GST ({taxRate}%)</span>
+                  <span>₹{foodGst}</span>
                 </div>
+                {packagingFee > 0 && (
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', marginBottom: '0.3rem' }}>
+                    <span>Packaging GST (18%)</span>
+                    <span>₹{packagingGst}</span>
+                  </div>
+                )}
                 <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', borderTop: '1px dashed var(--sandstone)', paddingTop: '0.5rem', marginTop: '0.5rem', fontWeight: 700 }}>
                   <span>Grand total to pay:</span>
                   <span style={{ color: 'var(--royal-gold)' }}>₹{grandTotal}</span>

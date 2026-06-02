@@ -398,3 +398,13 @@ export const calculateDiscount = (coupon, subtotal) => {
   }
   return discount;
 };
+
+// Listen for storage changes from other tabs to sync reactively
+if (typeof window !== 'undefined') {
+  window.addEventListener('storage', (e) => {
+    if (e.key && e.key.startsWith('pk_')) {
+      window.dispatchEvent(new Event('pk_store_update'));
+    }
+  });
+}
+

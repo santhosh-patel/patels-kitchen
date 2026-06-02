@@ -25,7 +25,12 @@ function buildSummaryRows(orderData) {
   if (orderData.deliveryFee > 0) {
     rows.push(['Delivery fee', formatRs(orderData.deliveryFee)]);
   }
-  rows.push([`GST (${orderData.taxRate ?? 5}%)`, formatRs(orderData.gst)]);
+  if (orderData.packagingGst > 0) {
+    rows.push([`Food GST (${orderData.taxRate ?? 5}%)`, formatRs(orderData.foodGst)]);
+    rows.push(['Packaging GST (18%)', formatRs(orderData.packagingGst)]);
+  } else {
+    rows.push([`GST (${orderData.taxRate ?? 5}%)`, formatRs(orderData.gst)]);
+  }
   rows.push(['GRAND TOTAL', formatRs(orderData.grandTotal)]);
 
   return rows;

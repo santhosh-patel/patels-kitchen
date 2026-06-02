@@ -12,13 +12,18 @@ export default function OrderTracker() {
   const [order, setOrder] = useState(null);
   const [errorMsg, setErrorMsg] = useState('');
 
-  // Extract ID from URL Hash e.g. #/track?id=PK-12345
+  // Extract ID from URL query string or hash parameters cleanly using native URLSearchParams
   const getOrderIdFromUrl = () => {
-    const params = new URLSearchParams(window.location.search);
-    if (params.get('id')) return params.get('id');
+    const searchParams = new URLSearchParams(window.location.search);
+    if (searchParams.get('id')) return searchParams.get('id');
+
     const hash = window.location.hash;
-    const match = hash.match(/[?&]id=([^&]+)/);
-    return match ? match[1] : '';
+    const qIndex = hash.indexOf('?');
+    if (qIndex !== -1) {
+      const hashParams = new URLSearchParams(hash.slice(qIndex));
+      if (hashParams.get('id')) return hashParams.get('id');
+    }
+    return '';
   };
 
   const lookupOrder = (id) => {

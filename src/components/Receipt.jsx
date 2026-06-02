@@ -35,7 +35,12 @@ function buildReceiptText(orderData) {
     ...(orderData.discount > 0 ? [`Discount (${orderData.couponCode}): -₹${orderData.discount}`] : []),
     ...(orderData.packagingFee > 0 ? [`Packaging: ₹${orderData.packagingFee}`] : []),
     ...(orderData.deliveryFee > 0 ? [`Delivery: ₹${orderData.deliveryFee}`] : []),
-    `Taxes (${orderData.taxRate ?? 5}%): ₹${orderData.gst}`,
+    ...(orderData.packagingGst > 0 ? [
+      `Food GST (${orderData.taxRate ?? 5}%): ₹${orderData.foodGst}`,
+      `Packaging GST (18%): ₹${orderData.packagingGst}`
+    ] : [
+      `Taxes (${orderData.taxRate ?? 5}%): ₹${orderData.gst}`
+    ]),
     `GRAND TOTAL: ₹${orderData.grandTotal}`,
     '═'.repeat(40),
     ...(isDelivery ? [`Track your order: ${window.location.origin}/track?id=${orderData.orderId}`] : []),
@@ -180,10 +185,23 @@ export default function Receipt({ orderData, onHome, onBack, onOrderAgain }) {
                   <td className="receipt-num">₹{formatInr(orderData.deliveryFee)}</td>
                 </tr>
               )}
-              <tr>
-                <td>GST ({orderData.taxRate ?? 5}%)</td>
-                <td className="receipt-num">₹{formatInr(orderData.gst)}</td>
-              </tr>
+              {orderData.packagingGst > 0 ? (
+                <>
+                  <tr>
+                    <td>Food GST ({orderData.taxRate ?? 5}%)</td>
+                    <td className="receipt-num">₹{formatInr(orderData.foodGst)}</td>
+                  </tr>
+                  <tr>
+                    <td>Packaging GST (18%)</td>
+                    <td className="receipt-num">₹{formatInr(orderData.packagingGst)}</td>
+                  </tr>
+                </>
+              ) : (
+                <tr>
+                  <td>GST ({orderData.taxRate ?? 5}%)</td>
+                  <td className="receipt-num">₹{formatInr(orderData.gst)}</td>
+                </tr>
+              )}
               <tr className="receipt-total-row">
                 <td>GRAND TOTAL</td>
                 <td className="receipt-num">₹{formatInr(orderData.grandTotal)}</td>
