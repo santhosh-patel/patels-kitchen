@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { X, Trash2, ShieldCheck, ShoppingBag, ChevronDown, ChevronUp } from 'lucide-react';
+import { X, Trash2, ShieldCheck, ShoppingBag, ChevronDown, ChevronUp, Landmark, Truck } from 'lucide-react';
 import { getCoupons, getSettings } from '../data/store';
 import { calculateOrderTotals } from '../lib/pricing';
 import { navigate } from '../lib/navigation';
@@ -23,6 +23,7 @@ export default function CartDrawer({
   const [errorMsg, setErrorMsg] = useState('');
   const [showOffers, setShowOffers] = useState(false);
   const [promoOpen, setPromoOpen] = useState(false);
+  const [drawerDeliveryMode, setDrawerDeliveryMode] = useState('dinein');
 
   useEffect(() => {
     if (activeCoupon) {
@@ -45,14 +46,15 @@ export default function CartDrawer({
 
   const totalItems = cart.reduce((sum, item) => sum + item.quantity, 0);
   const settings = getSettings();
-  const deliveryEstimate = calculateOrderTotals({
+
+  const totals = calculateOrderTotals({
     cart,
-    deliveryMode: 'delivery',
+    deliveryMode: drawerDeliveryMode,
     packaging: 'none',
     coupon: activeCoupon,
     settings
   });
-  const { subtotal, discount, tax: gst, deliveryFee, grandTotal, taxRate } = deliveryEstimate;
+  const { subtotal, discount, foodGst, packagingGst, tax: gst, deliveryFee, grandTotal, taxRate } = totals;
 
   const handleApplyCoupon = () => {
     setErrorMsg('');
@@ -265,6 +267,51 @@ export default function CartDrawer({
               )}
             </div>
 
+            {/* Dining Experience Selection (2 premium options cards) */}
+            <div style={{ display: 'flex', gap: '0.8rem', padding: '0.8rem 1.2rem', borderBottom: '1px dashed var(--sandstone)', background: 'rgba(247, 241, 232, 0.3)' }}>
+              <button
+                type="button"
+                onClick={() => setDrawerDeliveryMode('dinein')}
+                style={{
+                  flex: 1,
+                  padding: '0.7rem 0.5rem',
+                  borderRadius: '12px',
+                  border: drawerDeliveryMode === 'dinein' ? '1.5px solid var(--royal-gold)' : '1px solid var(--sandstone)',
+                  background: drawerDeliveryMode === 'dinein' ? 'rgba(184, 138, 59, 0.08)' : 'var(--pure-white)',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  gap: '0.3rem',
+                  transition: 'var(--transition-fast)'
+                }}
+              >
+                <Landmark size={18} style={{ color: drawerDeliveryMode === 'dinein' ? 'var(--royal-gold)' : '#777' }} />
+                <span style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--deep-charcoal)' }}>Table Dine-In</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setDrawerDeliveryMode('delivery')}
+                style={{
+                  flex: 1,
+                  padding: '0.7rem 0.5rem',
+                  borderRadius: '12px',
+                  border: drawerDeliveryMode === 'delivery' ? '1.5px solid var(--royal-gold)' : '1px solid var(--sandstone)',
+                  background: drawerDeliveryMode === 'delivery' ? 'rgba(184, 138, 59, 0.08)' : 'var(--pure-white)',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  gap: '0.3rem',
+                  transition: 'var(--transition-fast)'
+                }}
+              >
+                <Truck size={18} style={{ color: drawerDeliveryMode === 'delivery' ? 'var(--royal-gold)' : '#777' }} />
+                <span style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--deep-charcoal)' }}>Royal Delivery</span>
+              </button>
+            </div>
+
             <div className="cart-totals-scroll">
               <div className="totals-row">
                 <span>Subtotal</span>
@@ -279,14 +326,16 @@ export default function CartDrawer({
               )}
 
               <div className="totals-row">
-                <span>Taxes & GST ({taxRate}%)</span>
-                <span>₹{gst}</span>
+                <span>Food GST ({taxRate}%)</span>
+                <span>₹{foodGst}</span>
               </div>
 
-              <div className="totals-row totals-muted">
-                <span>Est. delivery fee (if delivery)</span>
-                <span>{deliveryFee > 0 ? `₹${deliveryFee}` : 'Free'}</span>
-              </div>
+              {drawerDeliveryMode === 'delivery' && deliveryFee > 0 && (
+                <div className="totals-row">
+                  <span>Delivery fee</span>
+                  <span>₹{deliveryFee}</span>
+                </div>
+              )}
 
               <div className="totals-row grand-total">
                 <span>Grand Total</span>
@@ -303,7 +352,7 @@ export default function CartDrawer({
             <div className="cart-checkout-footer">
               <button
                 type="button"
-                onClick={onCheckout}
+                onClick={() => onCheckout(drawerDeliveryMode)}
                 disabled={!minOrderMet}
                 className="btn-primary cart-checkout-btn"
               >

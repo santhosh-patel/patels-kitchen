@@ -12,9 +12,10 @@ export default function CheckoutModal({
   onOrderComplete,
   activeCoupon,
   setActiveCoupon,
-  initialPackaging = 'none'
+  initialPackaging = 'none',
+  initialDeliveryMode = 'dinein'
 }) {
-  const [step, setStep] = useState(1);
+  const [step, setStep] = useState(2);
   const [deliveryMode, setDeliveryMode] = useState('dinein');
   const [checkoutPackaging, setCheckoutPackaging] = useState('none');
   const [paymentPhase, setPaymentPhase] = useState('idle'); // idle | qr | success
@@ -28,6 +29,7 @@ export default function CheckoutModal({
     tableNumber: '',
     notes: ''
   });
+  const [formErrors, setFormErrors] = useState({});
   const orderCompletedRef = useRef(false);
 
   const isDineIn = deliveryMode === 'dinein';
@@ -37,16 +39,17 @@ export default function CheckoutModal({
   useEffect(() => {
     if (isOpen) {
       orderCompletedRef.current = false;
-      setStep(1);
-      setDeliveryMode('dinein');
+      setStep(2);
+      setDeliveryMode(initialDeliveryMode);
       setCheckoutPackaging(initialPackaging === 'none' ? 'none' : initialPackaging);
       setPaymentPhase('idle');
       setPaymentRef('');
       setQrDataUrl('');
       setQrError('');
       setFormData({ name: '', phone: '', address: '', tableNumber: '', notes: '' });
+      setFormErrors({});
     }
-  }, [isOpen, initialPackaging]);
+  }, [isOpen, initialPackaging, initialDeliveryMode]);
 
   const totals = calculateOrderTotals({
     cart,
@@ -196,21 +199,46 @@ export default function CheckoutModal({
   };
 
   const handleNextStep = () => {
-    if (step === 1) {
-      setStep(isDineIn ? 2 : 2);
-    } else if (step === 2 && !isDineIn) {
-      setStep(3);
+    if (step === 2 && !isDineIn) {
+      const errors = {};
+      if (!formData.name.trim()) {
+        errors.name = 'Guest name is required';
+      }
+      
+      const cleanPhone = formData.phone.replace(/\s+/g, '');
+      if (!formData.phone.trim()) {
+        errors.phone = 'Phone number is required';
+      } else if (!/^\+?[0-9]{10,14}$/.test(cleanPhone)) {
+        errors.phone = 'Please enter a valid 10-12 digit phone number';
+      }
+      
+      if (!formData.address.trim()) {
+        errors.address = 'Delivery address is required';
+      } else if (formData.address.trim().length < 8) {
+        errors.address = 'Please enter a detailed street address';
+      }
+
+      if (Object.keys(errors).length > 0) {
+        setFormErrors(errors);
+        return;
+      }
+      setFormErrors({});
     }
+    setStep(3);
   };
 
   const handleBack = () => {
+    if (step === 2) {
+      onClose();
+      return;
+    }
     if (step === paymentStep && paymentPhase !== 'idle') {
       setPaymentPhase('idle');
       setPaymentRef('');
       setQrDataUrl('');
       setQrError('');
     }
-    if (step > 1) {
+    if (step > 2) {
       setStep(step - 1);
       setPaymentPhase('idle');
       setPaymentRef('');
@@ -223,13 +251,11 @@ export default function CheckoutModal({
 
   const stepPills = isDineIn
     ? [
-        { label: '1. Dining option', active: step >= 1, completed: step > 1 },
-        { label: '2. Payment', active: step >= 2, completed: false }
+        { label: 'Payment', active: true, completed: false }
       ]
     : [
-        { label: '1. Dining option', active: step >= 1, completed: step > 1 },
-        { label: '2. Delivery details', active: step >= 2, completed: step > 2 },
-        { label: '3. Payment', active: step >= 3, completed: false }
+        { label: '1. Delivery details', active: step >= 2, completed: step > 2 },
+        { label: '2. Payment', active: step >= 3, completed: false }
       ];
 
   const qrData = buildUpiPaymentUri({
@@ -403,9 +429,14 @@ export default function CheckoutModal({
                   className="form-input" 
                   placeholder="Your full name"
                   value={formData.name}
-                  onChange={(e) => handleInputChange('name', e.target.value)}
+                  onChange={(e) => {
+                    handleInputChange('name', e.target.value);
+                    if (formErrors.name) setFormErrors(prev => ({ ...prev, name: '' }));
+                  }}
                   required
+                  style={formErrors.name ? { borderColor: '#cc3333', boxShadow: '0 0 0 2px rgba(204,51,51,0.1)' } : {}}
                 />
+                {formErrors.name && <span style={{ color: '#cc3333', fontSize: '0.72rem', marginTop: '0.2rem', display: 'block' }}>{formErrors.name}</span>}
               </div>
 
               <div className="form-group">
@@ -418,9 +449,14 @@ export default function CheckoutModal({
                   className="form-input" 
                   placeholder="e.g. +91 98480 22338"
                   value={formData.phone}
-                  onChange={(e) => handleInputChange('phone', e.target.value)}
+                  onChange={(e) => {
+                    handleInputChange('phone', e.target.value);
+                    if (formErrors.phone) setFormErrors(prev => ({ ...prev, phone: '' }));
+                  }}
                   required
+                  style={formErrors.phone ? { borderColor: '#cc3333', boxShadow: '0 0 0 2px rgba(204,51,51,0.1)' } : {}}
                 />
+                {formErrors.phone && <span style={{ color: '#cc3333', fontSize: '0.72rem', marginTop: '0.2rem', display: 'block' }}>{formErrors.phone}</span>}
               </div>
 
               <div className="form-group">
@@ -433,10 +469,17 @@ export default function CheckoutModal({
                   rows="3" 
                   placeholder="Street, area, landmark..."
                   value={formData.address}
-                  onChange={(e) => handleInputChange('address', e.target.value)}
+                  onChange={(e) => {
+                    handleInputChange('address', e.target.value);
+                    if (formErrors.address) setFormErrors(prev => ({ ...prev, address: '' }));
+                  }}
                   required
-                  style={{ resize: 'none' }}
+                  style={{
+                    resize: 'none',
+                    ...(formErrors.address ? { borderColor: '#cc3333', boxShadow: '0 0 0 2px rgba(204,51,51,0.1)' } : {})
+                  }}
                 />
+                {formErrors.address && <span style={{ color: '#cc3333', fontSize: '0.72rem', marginTop: '0.2rem', display: 'block' }}>{formErrors.address}</span>}
               </div>
 
               <div className="form-group">
@@ -489,6 +532,23 @@ export default function CheckoutModal({
                     <span>₹{grandTotal}</span>
                   </div>
 
+                  {isDineIn && (
+                    <div style={{ marginTop: '0.8rem', width: '100%', maxWidth: '240px', margin: '0.8rem auto 0' }}>
+                      <label className="form-label" style={{ fontSize: '0.75rem', display: 'flex', alignItems: 'center', gap: '4px', justifyContent: 'center', color: 'var(--traditional-brown)', fontWeight: 600, marginBottom: '0.3rem' }}>
+                        <Landmark size={12} style={{ color: 'var(--royal-gold)' }} />
+                        Table Number (Optional)
+                      </label>
+                      <input
+                        type="text"
+                        className="form-input"
+                        placeholder="e.g. 14 — defaults to Table 14"
+                        value={formData.tableNumber}
+                        onChange={(e) => handleInputChange('tableNumber', e.target.value.replace(/\D/g, ''))}
+                        style={{ textAlign: 'center', fontSize: '0.85rem', padding: '0.4rem', border: '1px solid var(--sandstone)', borderRadius: '8px', width: '100%', outline: 'none' }}
+                      />
+                    </div>
+                  )}
+
                   <div className="qr-scanning-indicator">
                     <div className="qr-scan-line" />
                     <span>Waiting for payment...</span>
@@ -518,7 +578,7 @@ export default function CheckoutModal({
         {showFooter && (
           <div className="checkout-footer">
             <button type="button" className="btn-secondary" onClick={handleBack}>
-              {step === 1 ? 'Cancel' : 'Back'}
+              {step === 2 ? 'Cancel' : 'Back'}
             </button>
 
             {isOnPayment && paymentPhase === 'qr' ? (
@@ -534,13 +594,8 @@ export default function CheckoutModal({
                 type="button"
                 className="btn-primary"
                 onClick={handleNextStep}
-                disabled={step === 2 && !isDineIn && (!formData.name || !formData.phone || !formData.address)}
-                style={{
-                  opacity: (step === 2 && !isDineIn && (!formData.name || !formData.phone || !formData.address)) ? 0.5 : 1,
-                  cursor: (step === 2 && !isDineIn && (!formData.name || !formData.phone || !formData.address)) ? 'not-allowed' : 'pointer'
-                }}
               >
-                {step === 1 && isDineIn ? 'Proceed to Payment' : 'Next'}
+                Next
               </button>
             ) : null}
           </div>

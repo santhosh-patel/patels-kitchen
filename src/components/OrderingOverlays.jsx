@@ -15,6 +15,7 @@ export default function OrderingOverlays() {
     setIsAIAssistantOpen,
     completedOrderData,
     selectedPackaging,
+    deliveryMode,
     activeCoupon,
     setActiveCoupon,
     handleUpdateQty,
@@ -54,6 +55,7 @@ export default function OrderingOverlays() {
         setActiveCoupon={setActiveCoupon}
         onOrderComplete={handleOrderComplete}
         initialPackaging={selectedPackaging}
+        initialDeliveryMode={deliveryMode}
       />
 
       <Receipt

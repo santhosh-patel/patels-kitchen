@@ -47,6 +47,7 @@ export function OrderingProvider({ children }) {
   const [isAIAssistantOpen, setIsAIAssistantOpen] = useState(false);
   const [completedOrderData, setCompletedOrderData] = useState(null);
   const [selectedPackaging, setSelectedPackaging] = useState('none');
+  const [deliveryMode, setDeliveryMode] = useState('dinein');
   const [activeCoupon, setActiveCoupon] = useState(() => getActiveCoupon());
   const [toast, setToast] = useState(null);
 
@@ -120,9 +121,10 @@ export function OrderingProvider({ children }) {
     setCompletedOrderData(null);
   };
 
-  const handleCheckout = () => {
+  const handleCheckout = (mode = 'dinein') => {
     if (cart.length === 0) return;
     if (!meetsMinimumOrder(cart, settings)) return;
+    setDeliveryMode(mode);
     setIsCartOpen(false);
     setIsCheckoutOpen(true);
   };
@@ -146,6 +148,8 @@ export function OrderingProvider({ children }) {
       completedOrderData,
       selectedPackaging,
       setSelectedPackaging,
+      deliveryMode,
+      setDeliveryMode,
       activeCoupon,
       setActiveCoupon,
       handleAddToPlate,
